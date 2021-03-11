@@ -11,10 +11,18 @@ def csenergy(angle, e0):
     energymeasure = e0/(1+(e0/511)*(1 - np.cos(np.deg2rad(angle))))
     return energymeasure
 
+def errorprop(a, b, siga2, sigb2, cov, value):
+    asserror = np.sqrt((a**2)*siga2 + (b**2)*sigb2 + 2*a*b*cov)
+    return asserror
+
 data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
 data2 = np.genfromtxt("Experiment_Data.csv", delimiter = ",", max_rows= 7,skip_header=1, dtype="str")
 
 channel,nosource,na22calib,mn54calib,cs137calib,am241calib,c20cs137,b20cs137,c30cs137,b30cs137,c45cs137,b45cs137 = data
+
+plt.plot(channel, cs137calib)
+plt.title("Cs-137 with background noise")
+plt.show()
 
 na22calib -= nosource
 mn54calib -= nosource
@@ -73,8 +81,6 @@ plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.show()
 
-#%%
-
 cs20 = c20cs137-b20cs137
 cs30 = c30cs137-b30cs137
 cs45 = c45cs137-b45cs137
@@ -103,7 +109,9 @@ for i in range(len(c45cs137)):
     elif b45cs137[i] == 0:
         value = 0
     r45.append(value)
-   
+
+
+#%%
 
 #expected energyresponses
 expected20 = csenergy(20, cs137e[1])
@@ -122,37 +130,59 @@ plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
 plt.show()
-plt.scatter(channel, r20)
-#plt.scatter(channel, c20cs137)
+plt.scatter(channel, cs20)
+plt.scatter(channel, c20cs137)
 #plt.scatter(channel, b20cs137, label='background')# angle = 20 deg
 plt.axvline(expectedchannel20,color = "r", label = ("Value from compton eq."))
 plt.title("Cs-137 at 20 degrees of incidence")
 plt.legend()
 plt.xlabel("Channel")
-plt.ylabel("Ratio")
+plt.ylabel("Counts")
 plt.grid()
 plt.show()
 plt.scatter(channel, cs30)
-#plt.scatter(channel, c30cs137)
+plt.scatter(channel, c30cs137)
 #plt.scatter(channel, b30cs137  , label='background')# angle = 30 deg
 plt.axvline(expectedchannel30, color = "r", label = ("Value from compton eq."))
 plt.title("Cs-137 at 30 degrees of incidence")
 plt.legend()
 plt.xlabel("Channel")
-plt.ylabel("Ratio")
+plt.ylabel("Counts")
 plt.grid()
 plt.show()
 plt.scatter(channel, cs45)
-#plt.scatter(channel, c45cs137)
+plt.scatter(channel, c45cs137)
 #plt.scatter(channel, b45cs137, label = 'background')  # angle = 40
 plt.axvline(expectedchannel45,color = "r", label = ("Value from compton eq."))
 plt.title("Cs-137 at 45 degrees of incidence")
 plt.legend()
 plt.xlabel("Channel")
-plt.ylabel("Ratio")
+plt.ylabel("Counts")
 plt.grid()
 plt.show()
 
 maxenergy20 = popt[0]*np.argmax(cs20) + popt[1]
 maxenergy30 = popt[0]*np.argmax(cs30) + popt[1]
 maxenergy45 = popt[0]*np.argmax(cs45) + popt[1]
+
+#%%
+
+angle =  np.arange(0, 60, 0.1)
+energies = list(map(lambda x: csenergy(x, cs137e[1]), angle))
+
+plt.plot(angle, energies,label = "Expected values")
+
+csenergy20 = linear(np.argmax(cs20[100:]) + 100, *popt)
+csenergy30 = linear(np.argmax(cs30[100:]) + 100, *popt)
+csenergy45 = linear(np.argmax(cs45[100:]) + 100, *popt)
+
+plt.errorbar([20,30,45], [csenergy20, csenergy30, csenergy45], \
+             [errorprop(*popt, pcov[0][0], pcov[1][1], pcov[0][1], csenergy20) , \
+              errorprop(*popt, pcov[0][0], pcov[1][1], pcov[0][1], csenergy20) , \
+              errorprop(*popt, pcov[0][0], pcov[1][1], pcov[0][1], csenergy20)], fmt = 'x', label = "Measured values")
+
+plt.title("Energy against scattering angle")
+plt.xlabel("Scattering (degrees)")
+plt.ylabel("Energy (keV")
+plt.legend()
+plt.show()
