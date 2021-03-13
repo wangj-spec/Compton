@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Mar 13 17:15:56 2021
+
+@author: leonardobossi1
+"""
+
+import numpy as np
+import random as rnd
+from scipy.stats import norm
+
+def Gaussian(x, const, sigma, u):
+    '''
+    Returns Guassian function for a given x value and Gaussian parameters.
+    sigma::float 
+        Standard deviation
+    const::float 
+        constant
+    u::float 
+        mean value
+    '''
+    return (const/(sigma * np.sqrt(2* np.pi))) * np.e ** (-0.5 * ((x - u)/sigma) ** 2)
+
+def csenergy(angle, e0, e_energy = 511):
+    energymeasure = e0 /(1+ (e0 / e_energy) * (1 - np.cos(np.deg2rad(angle))))
+    
+    return energymeasure
+
+# Detector info
+gain = 5e-3
+
+# Experimental parameters 
+scatter_angle = 30
+source_energy = 662
+
+e_energy = 511
+
+
+analogsignal = csenergy(scatter_angle, source_energy) * gain
+
+bins = []
+
+def generate_noise(N, det_res = 0.075, max_signal = 5, bit_depth = 9):
+    
+    for i in range(N):
+        
+        seed = rnd.random()
+        noise_signal = norm.ppf(seed, loc=0, scale = det_res * max_signal/2)
+        tot_signal = analogsignal + noise_signal
+        
+        bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+        
+        bins.append(bin_val)
+        
+    
+
+
+
+
+
+
+
+
+
+
