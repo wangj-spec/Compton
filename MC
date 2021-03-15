@@ -27,7 +27,17 @@ def Gaussian(x, const, sigma, u):
 def analogsignal(angle, e0, gain,e_energy=511):
     energymeasure = e0 / (1 + (e0 / e_energy) * (1 - np.cos(np.deg2rad(angle))))
     analogsignal = energymeasure * gain
+
     return analogsignal
+
+
+def backscatter(energy, gain):
+    seed = rnd.random()
+    angle = norm.ppf(seed, loc=180, scale=45) # angle choosing in degrees
+    signalmeasured = analogsignal(angle, energy, gain)
+
+    return signalmeasured
+
 
 
 # Detector info
@@ -35,7 +45,7 @@ gain1 = 2.85e-3
 gain2 = 5e-3
 
 # Experimental parameters
-scatter_angle = 30
+scatter_angle = 0
 source_energy = 662
 
 e_energy = 511
@@ -43,7 +53,7 @@ e_energy = 511
 analsig1 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 analsig2 = analogsignal(scatter_angle, source_energy, gain2, e_energy)
 
-def generate_noise(N, analogsignal, det_res=0.075, max_signal=5, bit_depth=9):
+def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probback = 0, probscat = 0):
 
     bins = {}
 
@@ -51,25 +61,86 @@ def generate_noise(N, analogsignal, det_res=0.075, max_signal=5, bit_depth=9):
         bins[i] = 0
 
     for i in range(N):
+
         seed = rnd.random()
-        noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2)
-        tot_signal = analogsignal + noise_signal
+        noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2) # Gaussian noise
 
-        bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+        probscatt = rnd.random()
+        backprob = rnd.random()
+        if probscatt <= probscat:
+            seed = rnd.random()
+            angle = norm.ppf(seed, loc=180, scale=180)  # angle choosing in degrees [don't know the distribution yet]
+            energy = analogsig/gain
+            scattered = analogsignal(angle, energy, gain)
+            signal = analogsig - scattered
+            tot_signal = signal + noise_signal
 
-        bins[bin_val] += 1
+            if tot_signal < 0:
+                continue #not physical result
+
+            bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+
+            bins[bin_val] += 1
+
+
+        elif backprob <= probback: # chance of passing through the scintillating crystal
+            backsignal = backscatter(analogsig/gain, gain)
+            tot_signal = backsignal + noise_signal
+            if tot_signal < 0:
+                continue  # not physical result
+            bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+
+            bins[bin_val] += 1
+        else:
+
+            tot_signal = analogsig + noise_signal
+
+            bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+
+            bins[bin_val] += 1
 
     return bins
 
 
 
-channels = generate_noise(1000, analsig1)
-cannale2 = generate_noise(1000, analsig2)
+channels = generate_noise(1000, analsig1, gain1)
+cannale2 = generate_noise(1000, analsig2, gain2)
 
 plt.scatter(channels.keys(), channels.values(), label = "Gain = 0.00285")
 plt.scatter(cannale2.keys(), cannale2.values(), label = "Gain = 0.005")
 plt.title("Simulated signal for " + str(scatter_angle) + " degrees")
 plt.legend()
+plt.xlabel("Channel")
+plt.ylabel("Counts")
+plt.grid()
+plt.show()
+
+#%%
+backscattest = generate_noise(10000, analsig1, gain1, probback= 0.05 )
+channels = generate_noise(10000, analsig1, gain1)
+plt.scatter(backscattest.keys(), backscattest.values(), label = "Backscatter incl")
+#plt.scatter(channels.keys(), channels.values(), label = "No backscatter")
+plt.legend()
+plt.xlabel("Channel")
+plt.ylabel("Counts")
+plt.grid()
+plt.show()
+
+#%%
+comptonedgetest = generate_noise(10000, analsig1, gain1, probscat = 0.1)
+channels = generate_noise(10000, analsig1, gain1)
+plt.scatter(comptonedgetest.keys(),comptonedgetest.values(), label = "Compton edge")
+#plt.scatter(channels.keys(), channels.values(), label = "No compton edge")
+plt.legend()
+plt.xlabel("Channel")
+plt.ylabel("Counts")
+plt.grid()
+plt.show()
+
+#%%
+botheffects = generate_noise(10000, analsig1, gain1, probback = 0.2, probscat = 0.2)
+plt.scatter(botheffects.keys(), botheffects.values())
+plt.title("Trying to include all effects")
 plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
