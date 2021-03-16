@@ -24,8 +24,12 @@ def Gaussian(x, const, sigma, u):
     return (const / (sigma * np.sqrt(2 * np.pi))) * np.e ** (-0.5 * ((x - u) / sigma) ** 2)
 
 
-def analogsignal(angle, e0, gain,e_energy=511):
+def analogsignal(angle, e0, gain, e_energy=511):
+    
+    # Calculating the scattering energy from the Compton relation
     energymeasure = e0 / (1 + (e0 / e_energy) * (1 - np.cos(np.deg2rad(angle))))
+    
+    # Computing the analog signal by multiplying the gain.
     analogsignal = energymeasure * gain
 
     return analogsignal
@@ -53,11 +57,11 @@ e_energy = 511
 analsig1 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 analsig2 = analogsignal(scatter_angle, source_energy, gain2, e_energy)
 
-def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probback = 0, probscat = 0):
+def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probback = 0, scat_prob = 0):
 
     bins = {}
 
-    for i in range(2**bit_depth):
+    for i in range(2 ** bit_depth):
         bins[i] = 0
 
     for i in range(N):
@@ -65,9 +69,11 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
         seed = rnd.random()
         noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2) # Gaussian noise
 
-        probscatt = rnd.random()
-        backprob = rnd.random()
-        if probscatt <= probscat:
+        probscatt_n = rnd.random()
+        backprob_n = rnd.random()
+        
+        
+        if probscatt_n <= scat_prob:
             seed = rnd.random()
             angle = norm.ppf(seed, loc=180, scale=180)  # angle choosing in degrees [don't know the distribution yet]
             energy = analogsig/gain
@@ -83,7 +89,7 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
             bins[bin_val] += 1
 
 
-        elif backprob <= probback: # chance of passing through the scintillating crystal
+        elif backprob_n <= probback: # chance of passing through the scintillating crystal
             backsignal = backscatter(analogsig/gain, gain)
             tot_signal = backsignal + noise_signal
             if tot_signal < 0:
@@ -113,35 +119,37 @@ plt.legend()
 plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
-plt.show()
 
 #%%
 backscattest = generate_noise(10000, analsig1, gain1, probback= 0.05 )
 channels = generate_noise(10000, analsig1, gain1)
+
+plt.figure()
 plt.scatter(backscattest.keys(), backscattest.values(), label = "Backscatter incl")
 #plt.scatter(channels.keys(), channels.values(), label = "No backscatter")
 plt.legend()
 plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
-plt.show()
 
-#%%
-comptonedgetest = generate_noise(10000, analsig1, gain1, probscat = 0.1)
+
+comptonedgetest = generate_noise(10000, analsig1, gain1, scat_prob = 0.1)
 channels = generate_noise(10000, analsig1, gain1)
+
+plt.figure()
 plt.scatter(comptonedgetest.keys(),comptonedgetest.values(), label = "Compton edge")
 #plt.scatter(channels.keys(), channels.values(), label = "No compton edge")
 plt.legend()
 plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
-plt.show()
 
-#%%
-botheffects = generate_noise(10000, analsig1, gain1, probback = 0.2, probscat = 0.2)
+
+botheffects = generate_noise(10000, analsig1, gain1, probback = 0.2, scat_prob = 0.2)
+
+plt.figure()
 plt.scatter(botheffects.keys(), botheffects.values())
 plt.title("Trying to include all effects")
 plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
-plt.show()
