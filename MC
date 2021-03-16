@@ -10,6 +10,10 @@ import random as rnd
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 
+def photon_E(E_initial, theta, e_rest = 511):
+    E_final = E_initial / (1 + (E_initial * (1 - np.cos(theta)) / e_rest))
+    
+    return E_final 
 
 def Gaussian(x, const, sigma, u):
     '''
@@ -42,7 +46,38 @@ def backscatter(energy, gain):
 
     return signalmeasured
 
+re = 2.8179 * 10 ** -15
 
+def cross_diff(theta, E_initial, re = re):
+    
+    E_scatter = photon_E(E_initial, theta)
+    P = E_scatter / E_initial    
+    
+    cross_diff = 1/2 * (re ** 2) * (P ** 2) * (P + 1/P - (np.sin(theta)) ** 2)
+    
+    return cross_diff
+    
+
+theta_p = 2 * np.pi
+theta_m = 0
+    
+int_vol = 2 * np.pi * (np.cos(theta_m) - np.cos(theta_p))
+
+
+N = 1000
+int_sum = 0
+
+for i in range(N):
+    dtheta = theta_p - theta_m
+    theta = theta_m + rnd.random() * dtheta
+    
+    int_sum += cross_diff(theta, 662)
+    
+    
+integral_est = (int_vol / N) * int_sum
+    
+    
+    
 
 # Detector info
 gain1 = 2.85e-3
@@ -153,3 +188,7 @@ plt.title("Trying to include all effects")
 plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.grid()
+
+
+
+
