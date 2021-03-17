@@ -69,6 +69,40 @@ def cross_diff(theta, E_initial, re = re):
     cross_diff = 1/2 * (re ** 2) * (P ** 2) * (P + 1/P - (np.sin(theta)) ** 2)
     
     return cross_diff
+
+    
+def MC_int(func, theta_p, theta_m, N = 1000):
+    '''
+    Params::
+        func:: function
+            Function being integrated
+        theta_p:: float
+        theta_m:: float
+            Upper and lower limits to be integreated over.
+        N::int
+            Number of iterations
+    Returns::
+        int_val:float
+            Value of integral 
+        err_val:float
+            Associated uncertainty.
+    '''
+    int_vol = 2 * np.pi * (np.cos(theta_m) - np.cos(theta_p))
+    int_vals = []
+    
+    for i in range(N):
+        dtheta = theta_p - theta_m
+        theta = theta_m + rnd.random() * dtheta
+        
+        int_vals.append(func(theta, 662))
+        
+    
+    err = int_vol * np.std(int_vals) / np.sqrt(N)    
+    integral_est = (int_vol / N) * sum(int_vals)
+
+    
+    return integral_est, err
+    
     
 theta_range = np.arange(0, np.pi, 0.01)
 cross_sec = []
@@ -77,24 +111,8 @@ for theta_val in theta_range:
     theta_p = theta_val
     theta_m = 0
     
-    # MC Integration
-    int_vol = 2 * np.pi * (np.cos(theta_m) - np.cos(theta_p))
-    
-    
-    N = 2000
-    int_vals = []
-    
-    for i in range(N):
-        dtheta = theta_p - theta_m
-        theta = theta_m + rnd.random() * dtheta
-        
-        int_vals.append(cross_diff(theta, 662))
-        
-    
-    err = int_vol * np.std(int_vals) / np.sqrt(N)
-    
-    integral_est = (int_vol / N) * sum(int_vals)
-    cross_sec.append(integral_est)
+   
+    cross_sec.append(MC_int(cross_diff, theta_p, theta_m)[0])
     
 plt.scatter(theta_range, cross_sec)
 plt.xlabel('Total angle integrated over')
@@ -102,19 +120,6 @@ plt.ylabel('Total cross section')
 plt.grid()
 plt.ylim(0, 4e-29)
 
-
-# Detector info
-gain1 = 2.85e-3
-gain2 = 5e-3
-
-# Experimental parameters
-scatter_angle = 0
-source_energy = 662
-
-e_energy = 511
-
-analsig1 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
-analsig2 = analogsignal(scatter_angle, source_energy, gain2, e_energy)
 
 def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probback = 0, scat_prob = 0):
 
@@ -166,7 +171,18 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
 
     return bins
 
+# Detector info
+gain1 = 2.85e-3
+gain2 = 5e-3
 
+# Experimental parameters
+scatter_angle = 30
+source_energy = 662
+
+e_energy = 511
+
+analsig1 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
+analsig2 = analogsignal(scatter_angle, source_energy, gain2, e_energy)
 
 channels = generate_noise(1000, analsig1, gain1)
 cannale2 = generate_noise(1000, analsig2, gain2)
