@@ -129,8 +129,8 @@ def mcintegral(theta_m, theta_p ,N = 2000 ):
 electron_density = 17.41e28
 scattererlength = 4e-4
 
-diameter = 50e-3 #detector diameter
-radius = 0.1 #radius at which detector is placed
+diameter = 15e-3 #detector diameter
+radius = 0.3 #radius at which detector is placed
 N = int(100000)
 scatter_angle = 30
 theta = scatter_angle*np.pi/180 # 10 degrees in radians
@@ -138,7 +138,7 @@ dtheta = theta_detector(radius, diameter)
 
 sigma, sigmasigma = mcintegral(theta-dtheta/2,theta+dtheta/2 )
 
-N_angle = int(np.floor(N*np.exp(-electron_density*scattererlength*sigma)))
+N_angle = int(np.floor(N*(1-np.exp(-electron_density*scattererlength*sigma))))
 print(N_angle)
 
 gain1 = 2.85e-3
@@ -152,8 +152,8 @@ e_energy = 511
 analsig30 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 
 
-botheffects0 = generate_noise(N, source_energy*gain1, gain1, probback=0.2, scat_prob=0.2)
-botheffects30 = generate_noise(N_angle, analsig30, gain1, probback=0.2, scat_prob=0.2)
+botheffects0 = generate_noise(N, source_energy*gain1, gain1 )
+botheffects30 = generate_noise(N_angle, analsig30, gain1)
 
 plt.figure()
 plt.scatter(botheffects30.keys(), botheffects30.values(), label = "Scattered at 30 deg")
@@ -163,4 +163,42 @@ plt.xlabel("Channel")
 plt.ylabel("Counts")
 plt.legend()
 plt.grid()
+plt.show()
+
+#%%
+#relative distributions:
+
+
+electron_density = 17.41e28
+scattererlength = 4e-4
+
+diameter = 15e-3 #detector diameter
+radius = 0.3 #radius at which detector is placed
+
+angle1 = 30
+angle2 = 20
+
+theta1 = angle1*np.pi/180 # 10 degrees in radians
+dtheta1 = theta_detector(radius, diameter)
+sigma1, sigmasigma1 = mcintegral(theta-dtheta/2,theta+dtheta/2 )
+
+theta2 = angle2*np.pi/180 # 10 degrees in radians
+dtheta2 = theta_detector(radius, diameter)
+sigma2, sigmasigma2 = mcintegral(theta-dtheta/2,theta+dtheta/2 )
+
+n1 = 10000
+n2 = int(np.floor(np.exp(electron_density*scattererlength*(sigma2 - sigma1))*n1))
+
+analsig1 = analogsignal(angle1, source_energy, gain1, e_energy)
+analsig2 = analogsignal(angle2, source_energy, gain1, e_energy)
+
+spectrum1 = generate_noise(n1, analsig1, gain1)
+spectrum2 = generate_noise(n2, analsig2, gain1)
+
+plt.figure()
+plt.scatter(spectrum1.keys(), spectrum1.values(), label = str(angle1) + " degrees")
+plt.scatter(spectrum2.keys(), spectrum2.values(), label = str(angle2) + " degrees")
+plt.grid()
+plt.legend()
+plt.title("Checking relative count rates")
 plt.show()
