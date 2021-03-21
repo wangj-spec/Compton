@@ -62,7 +62,7 @@ def cross_diff(theta, E_initial, re=re):
 
     return cross_diff
 
-def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probback=0, scat_prob=0):
+def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0):
     bins = {}
 
     for i in range(2 ** bit_depth):
@@ -73,40 +73,44 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
         seed = rnd.random()
         noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2)  # Gaussian noise
 
+        detectionprob = rnd.random()
         probscatt_n = rnd.random()
-        backprob_n = rnd.random()
 
-        if probscatt_n <= scat_prob:
-            seed = rnd.random()
-            angle = norm.ppf(seed, loc=180, scale=180)  # angle choosing in degrees [don't know the distribution yet]
-            energy = analogsig / gain
-            scattered = analogsignal(angle, energy, gain)
-            signal = analogsig - scattered
-            tot_signal = signal + noise_signal
-
-            if tot_signal < 0:
-                continue  # not physical result
-
-            bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
-
-            bins[bin_val] += 1
-
-
-        elif backprob_n <= probback:  # chance of passing through the scintillating crystal
-            backsignal = backscatter(analogsig / gain, gain)
-            tot_signal = backsignal + noise_signal
-            if tot_signal < 0:
-                continue  # not physical result
-            bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
-
-            bins[bin_val] += 1
-        else:
+        if detectionprob <= probdect:   #probability of normal absorption within detector
 
             tot_signal = analogsig + noise_signal
 
             bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
 
             bins[bin_val] += 1
+
+        elif detectionprob > probdect:
+
+            if probscatt_n <= relprob: # compton scattering within detector
+                seed = rnd.random()
+                #angle = norm.ppf(seed, loc=180,
+                 #                scale=180)  # angle choosing in degrees [don't know the distribution yet]
+                angle = seed*180
+                energy = analogsig / gain
+                scattered = analogsignal(angle, energy, gain)
+                signal = analogsig - scattered
+                tot_signal = signal + noise_signal
+
+                if tot_signal < 0:
+                    continue  # not physical result
+
+                bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+
+                bins[bin_val] += 1
+
+            else: # backscattering
+                backsignal = backscatter(analogsig / gain, gain)
+                tot_signal = backsignal + noise_signal
+                if tot_signal < 0:
+                    continue  # not physical result
+                bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
+
+                bins[bin_val] += 1
 
     return bins
 
