@@ -62,6 +62,8 @@ def cross_diff(theta, E_initial, re=re):
 
     return cross_diff
 
+
+
 def linear_interpolation(array1, array2, x):
     for i in range(len(array1) - 1):
         current = array1[i]
@@ -140,7 +142,7 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
     return bins
 
 
-def mcintegral(theta_m, theta_p ,N = 100000 ):
+def mcintegral(theta_m, theta_p ,N = 20000):
     int_vol = 2 * np.pi * (theta_p - theta_m)
     int_vals = []
 
@@ -159,6 +161,7 @@ def mcintegral(theta_m, theta_p ,N = 100000 ):
 integral = []
 angles = []
 values = np.arange(0,180, 0.5)
+
 for i in values: # cumulative distribution function made from Kein Nishina area
     theta_m  = 0
     theta_p = i*np.pi/180
@@ -166,6 +169,8 @@ for i in values: # cumulative distribution function made from Kein Nishina area
     integral.append(integral_est)
     angles.append(i)
 
+# Binning the values from the cumulative distribution
+    
 for i in range(len(angles)):
     if i == 0: # edge case 0 (beginning)
         angles2 = [0]
@@ -184,9 +189,11 @@ areas.append(value180)
 errors.append(0)
 angles2.append(180)
 
+# Normalising the values from the distribution
 areas = areas/areas[-1]
 errors = errors/areas[-1]
 
+# Plotting resulting binned distribution
 plt.scatter(angles2, areas, color =  "k")
 plt.title("CDF for Kein-Nishina cross section")
 plt.xlabel("Angle (degrees")
@@ -195,38 +202,35 @@ plt.show()
 
 #%%
 
-
+# Exeperimental parameters for detector used (aluminimum)
 electron_density = 17.41e28
 scattererlength = 4e-4
-
 diameter = 15e-3 #detector diameter
 radius = 0.3 #radius at which detector is placed
-N = int(100000)
-scatter_angle = 30
-theta = scatter_angle*np.pi/180 # 10 degrees in radians
-dtheta = theta_detector(radius, diameter)
-
-sigma, sigmasigma = mcintegral(theta-dtheta/2,theta+dtheta/2 )
-
-N_angle = int(np.floor(N*(1-np.exp(-electron_density*scattererlength*sigma))))
-print(N_angle)
 
 gain1 = 2.85e-3
 gain2 = 5e-3
 
-# Experimental parameters
+N = int(20000) # Initial intensity
+scatter_angle = 30
+theta = scatter_angle * np.pi/180 # Converting to radians
+dtheta = theta_detector(radius, diameter)
 
+# Obtaining the total cross section taking into account the width of detector
+sigma, sigmasigma = mcintegral(theta-dtheta/2,theta+dtheta/2 )
+
+# Experimental parameters
 source_energy = 662
 e_energy = 511
 
+# Expected signal for peak scattered energy
 analsig30 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 
-
-botheffects0 = generate_noise(N, source_energy*gain1, gain1, [angles2, areas],probdect= 0.7, relprob= 0.8 )
+# Simulating spectrum with backscattering and compton edge
+botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, areas],probdect= 0.7, relprob= 0.8 )
 
 
 plt.figure()
-
 plt.scatter(botheffects0.keys(), botheffects0.values(), label = "No scatter")
 plt.title("Simulated Compton edge")
 plt.xlabel("Channel")
@@ -235,14 +239,7 @@ plt.grid()
 plt.show()
 
 #%%
-#relative distributions:
-
-
-electron_density = 17.41e28
-scattererlength = 4e-4
-
-diameter = 15e-3 #detector diameter
-radius = 0.3 #radius at which detector is placed
+# Testing relative counts between different scattered angles using the Kein-Nishina distribution.
 
 angle1 = 30
 angle2 = 20
