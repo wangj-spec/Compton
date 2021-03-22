@@ -141,8 +141,7 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
 
     return bins
 
-
-def mcintegral(theta_m, theta_p ,N = 20000):
+def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
     int_vol = 2 * np.pi * (theta_p - theta_m)
     int_vals = []
 
@@ -150,12 +149,77 @@ def mcintegral(theta_m, theta_p ,N = 20000):
         dtheta = theta_p - theta_m
         theta = theta_m + rnd.random() * dtheta
 
-        int_vals.append(cross_diff(theta, 662)*np.sin(theta))
+        int_vals.append(cross_diff(theta, energy)*np.sin(theta))
 
     err = int_vol * np.std(int_vals) / np.sqrt(N)
 
     integral_est = (int_vol / N) * sum(int_vals)
     return integral_est, err
+
+def find_ratio(channel_p, channel_m, counts):
+    peak_counts = np.sum(counts[channel_m:channel_p])
+    all_counts = np.sum(counts)
+
+    return peak_counts / all_counts
+
+
+data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
+data2 = np.genfromtxt("Experiment_Data.csv", delimiter = ",", max_rows= 7,skip_header=1, dtype="str")
+
+# Reading the data (from provided data ile)
+channel,nosource,na22calib,mn54calib,cs137calib,am241calib,c20cs137,b20cs137,c30cs137,b30cs137,c45cs137,b45cs137 = data
+
+# Removing the background noise
+na22calib -= nosource
+mn54calib -= nosource
+cs137calib -= nosource
+am241calib -= nosource
+
+am241ratio =  find_ratio(28,15, am241calib)
+cs137ratio =  find_ratio(210,160, cs137calib)
+mn54ratio = find_ratio(260, 210, mn54calib)
+
+peakratios = [am241ratio, cs137ratio, mn54ratio]
+energies = [59, 661.657, 834.838] # peak energies
+
+
+plt.figure()
+plt.plot(energies, peakratios)
+plt.title("Probability of detection for Gamma rays up ")
+plt.xlabel("Energy of peak in keV")
+plt.ylabel("Peak to total ratio")
+plt.grid()
+plt.show()
+
+integral = []
+angles = []
+values = np.arange(0,180, 0.5)
+for i in values: # cumulative distribution function made from Kein Nishina area for Caesium
+    theta_m  = 0
+    theta_p = i*np.pi/180
+    integral_est, err = mcintegral(theta_m, theta_p, 661.657)
+    integral.append(integral_est)
+    angles.append(i)
+
+for i in range(len(angles)):
+    if i == 0: # edge case 0 (beginning)
+        angles2 = [0]
+        errors = [0]
+        areas = [integral[i]]
+    else :
+        if i % 5 == 0: #binning values every 5 points
+            average = np.mean(integral[i-5:i])
+            error = np.std(integral[i-5:i])
+            areas.append(average)
+            errors.append(error)
+            angles2.append(angles[i-2])
+
+value180cs = linear_interpolation(angles2, areas, 180) # finding a value for caesium radiation
+
+# Experimental parameters
+
+source_energy = 511 # Defines the energy of incident gamma ray 
+e_energy = 511
 
 
 integral = []
@@ -165,7 +229,7 @@ values = np.arange(0,180, 0.5)
 for i in values: # cumulative distribution function made from Kein Nishina area
     theta_m  = 0
     theta_p = i*np.pi/180
-    integral_est, err = mcintegral(theta_m, theta_p)
+    integral_est, err = mcintegral(theta_m, theta_p, source_energy)
     integral.append(integral_est)
     angles.append(i)
 
@@ -201,6 +265,11 @@ plt.ylabel("Probability")
 plt.show()
 
 #%%
+nain = -np.log(1 - 0.5286549105)/(value180cs*0.05) # finding number density of electrons in NaI(Tl) using Cs
+
+probabs = 1-np.exp(-nain*value180*0.05) # absolute probability of scattering
+probdect =  linear_interpolation(energies, peakratios, source_energy)# probability of detection occurring
+probrel = probabs/(1-probdect) # relative probability of scattering if detection doesn't occur.
 
 # Exeperimental parameters for detector used (aluminimum)
 electron_density = 17.41e28
@@ -209,25 +278,20 @@ diameter = 15e-3 #detector diameter
 radius = 0.3 #radius at which detector is placed
 
 gain1 = 2.85e-3
-gain2 = 5e-3
 
-N = int(20000) # Initial intensity
+N = int(20000) # Initial intensity 
 scatter_angle = 30
 theta = scatter_angle * np.pi/180 # Converting to radians
 dtheta = theta_detector(radius, diameter)
 
 # Obtaining the total cross section taking into account the width of detector
-sigma, sigmasigma = mcintegral(theta-dtheta/2,theta+dtheta/2 )
-
-# Experimental parameters
-source_energy = 662
-e_energy = 511
+sigma, sigmasigma = mcintegral(theta-dtheta/2,theta+dtheta/2 , 662)
 
 # Expected signal for peak scattered energy
 analsig30 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 
 # Simulating spectrum with backscattering and compton edge
-botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, areas],probdect= 0.7, relprob= 0.8 )
+botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, areas],probdect= probdect, relprob= probrel )
 
 
 plt.figure()
