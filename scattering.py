@@ -48,7 +48,7 @@ def theta_detector(r, diam=50.8e-3):
 
 def backscatter(energy, gain):
     seed = rnd.random()
-    angle = norm.ppf(seed, loc=180, scale=45)  # angle choosing in degrees
+    angle = norm.ppf(seed, loc=180, scale=0.05)  # angle choosing in degrees
     signalmeasured = analogsignal(angle, energy, gain)
 
     return signalmeasured
@@ -62,7 +62,21 @@ def cross_diff(theta, E_initial, re=re):
 
     return cross_diff
 
-def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0):
+def linear_interpolation(array1, array2, x):
+    for i in range(len(array1) - 1):
+        current = array1[i]
+        next = array1[i+1]
+        if next > x:
+            value = array2[i] + (array2[i+1] - array2[i]) *(x - current)/(next - current)
+        else:
+            continue
+    if x >= array1[-1]:
+        value = array2[-1] + (array2[-1] - array2[-2])*(x - array1[-1])/(array1[-1]-array1[-2])
+
+    return value
+
+
+def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0):
     bins = {}
 
     for i in range(2 ** bit_depth):
@@ -70,13 +84,14 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
 
     for i in range(N):
 
-        seed = rnd.random()
-        noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2)  # Gaussian noise
-
         detectionprob = rnd.random()
         probscatt_n = rnd.random()
 
+        seed = rnd.random()
+        noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2)  # Gaussian noise
+
         if detectionprob <= probdect:   #probability of normal absorption within detector
+
 
             tot_signal = analogsig + noise_signal
 
@@ -88,9 +103,11 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
 
             if probscatt_n <= relprob: # compton scattering within detector
                 seed = rnd.random()
-                #angle = norm.ppf(seed, loc=180,
-                 #                scale=180)  # angle choosing in degrees [don't know the distribution yet]
-                angle = seed*180
+
+                angles = angledist[0]
+                probability = angledist[1]
+                angle = linear_interpolation(probability, angles,seed)
+
                 energy = analogsig / gain
                 scattered = analogsignal(angle, energy, gain)
                 signal = analogsig - scattered
@@ -104,6 +121,14 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
                 bins[bin_val] += 1
 
             else: # backscattering
+                seed = rnd.random()
+                angles = angledist[0]
+                probability = angledist[1]
+                angle = linear_interpolation(probability, angles, seed)
+
+                if angle < 110:
+                    continue # will not reach crystal
+
                 backsignal = backscatter(analogsig / gain, gain)
                 tot_signal = backsignal + noise_signal
                 if tot_signal < 0:
@@ -115,20 +140,61 @@ def generate_noise(N, analogsig, gain, det_res=0.075, max_signal=5, bit_depth=9,
     return bins
 
 
-def mcintegral(theta_m, theta_p ,N = 2000 ):
-    int_vol = 2 * np.pi * (np.cos(theta_m) - np.cos(theta_p))
+def mcintegral(theta_m, theta_p ,N = 100000 ):
+    int_vol = 2 * np.pi * (theta_p - theta_m)
     int_vals = []
 
     for i in range(N):
         dtheta = theta_p - theta_m
         theta = theta_m + rnd.random() * dtheta
 
-        int_vals.append(cross_diff(theta, 662))
+        int_vals.append(cross_diff(theta, 662)*np.sin(theta))
 
     err = int_vol * np.std(int_vals) / np.sqrt(N)
 
     integral_est = (int_vol / N) * sum(int_vals)
     return integral_est, err
+
+
+integral = []
+angles = []
+values = np.arange(0,180, 0.5)
+for i in values: # cumulative distribution function made from Kein Nishina area
+    theta_m  = 0
+    theta_p = i*np.pi/180
+    integral_est, err = mcintegral(theta_m, theta_p)
+    integral.append(integral_est)
+    angles.append(i)
+
+for i in range(len(angles)):
+    if i == 0: # edge case 0 (beginning)
+        angles2 = [0]
+        errors = [0]
+        areas = [integral[i]]
+    else :
+        if i % 5 == 0: #binning values every 5 points
+            average = np.mean(integral[i-5:i])
+            error = np.std(integral[i-5:i])
+            areas.append(average)
+            errors.append(error)
+            angles2.append(angles[i-2])
+
+value180 = linear_interpolation(angles2, areas, 180)
+areas.append(value180)
+errors.append(0)
+angles2.append(180)
+
+areas = areas/areas[-1]
+errors = errors/areas[-1]
+
+plt.scatter(angles2, areas, color =  "k")
+plt.title("CDF for Kein-Nishina cross section")
+plt.xlabel("Angle (degrees")
+plt.ylabel("Probability")
+plt.show()
+
+#%%
+
 
 electron_density = 17.41e28
 scattererlength = 4e-4
@@ -156,16 +222,15 @@ e_energy = 511
 analsig30 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 
 
-botheffects0 = generate_noise(N, source_energy*gain1, gain1 )
-botheffects30 = generate_noise(N_angle, analsig30, gain1)
+botheffects0 = generate_noise(N, source_energy*gain1, gain1, [angles2, areas],probdect= 0.7, relprob= 0.8 )
+
 
 plt.figure()
-plt.scatter(botheffects30.keys(), botheffects30.values(), label = "Scattered at 30 deg")
+
 plt.scatter(botheffects0.keys(), botheffects0.values(), label = "No scatter")
-plt.title("Including both Compton effect and backscattering")
+plt.title("Simulated Compton edge")
 plt.xlabel("Channel")
 plt.ylabel("Counts")
-plt.legend()
 plt.grid()
 plt.show()
 
