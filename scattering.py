@@ -54,7 +54,7 @@ def analogsignal(angle, e0, gain, e_energy=511):
     return analogsignal
 
 
-def theta_detector(r, diam=50.8e-3):
+def theta_detector(r=0.3, diam=15e-3):
     '''
     Params:
         r::float
@@ -216,23 +216,9 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                 bins[bin_val] += 1
 
     return bins
+
+
 def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
-    """
-    Monte-Carlo integration of Klein-Nishina differential cross-section
-    :param theta_m:: float
-            Lower bound of theta used in integral
-    :param theta_p:: float
-            Upper bound of theta used in integral
-    :param energy:: float
-            Incident energy of scattering photon
-    :param N:: int
-            Number of iterations used in the Monte-Carlo integration process
-    returns:
-            integral_est:: flaot
-            Estimated value of integral by Monte-Carlo process
-            err:: float
-            Estimated error in integral      
-    """
     int_vol = 2 * np.pi * (theta_p - theta_m)
     int_vals = []
 
@@ -245,48 +231,15 @@ def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
     err = int_vol * np.std(int_vals) / np.sqrt(N)
 
     integral_est = (int_vol / N) * sum(int_vals)
+    
     return integral_est, err
 
+
 def find_ratio(channel_p, channel_m, counts):
-    """
-    Finds ratio of counts within a certain channel range to total counts
-    :param channel_p:: int
-            Upper bound on channels
-    :param channel_m:: int
-            Lower bound on channels
-    :param counts:: 1d array
-            1d array of counts to be summed over to find ratop
-    :return: The ratio of counts within bounds channel_p, channel_m and total counts
-    """
     peak_counts = np.sum(counts[channel_m:channel_p])
     all_counts = np.sum(counts)
 
     return peak_counts / all_counts
-
-def localmaxima(arrayx, arrayy):
-    arrayx = list(arrayx)
-    arrayy = list(arrayy)
-
-    n = 0 # initialise counter
-    maxima = []
-
-    for i in range(len(arrayy)):
-        if i == 0:  # edge case 0 (beginning)
-            previousmean = np.inf
-            currentmean = np.mean(arrayy[i:i+10])
-            nextmean = np.mean(arrayy[i+10:i+20])
-        else:
-            if i % 10 == 0:  # binning values every 5 points
-                previousmean = currentmean
-                currentmean = nextmean
-                nextmean = np.mean(arrayy[i+10:i+20])
-
-                if previousmean < currentmean and currentmean > nextmean:
-                    n += 1
-                    maximumindex = i - 10 + np.argmax(arrayy[i - 10: i + 20])
-                    maxima.append((arrayx[maximumindex], arrayy[maximumindex]))
-
-    return n, maxima
 
 
 data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
@@ -317,73 +270,56 @@ plt.ylabel("Peak to total ratio")
 plt.grid()
 plt.show()
 
-integral = []
-angles = []
-values = np.arange(0,180, 0.5)
-for i in values: # cumulative distribution function made from Kein Nishina area for Caesium
-    theta_m  = 0
-    theta_p = i*np.pi/180
-    integral_est, err = mcintegral(theta_m, theta_p, 661.657)
-    integral.append(integral_est)
-    angles.append(i)
 
-for i in range(len(angles)):
-    if i == 0: # edge case 0 (beginning)
-        angles2 = [0]
-        errors = [0]
-        areas = [integral[i]]
-    else :
-        if i % 5 == 0: #binning values every 5 points
-            average = np.mean(integral[i-5:i])
-            error = np.std(integral[i-5:i])
-            areas.append(average)
-            errors.append(error)
-            angles2.append(angles[i-2])
+# Obtaining the cumulative distribution for probability of scattering using 
+# Klein Nishina
+source_energy= 511 
 
-value180cs = linear_interpolation(angles2, areas, 180) # finding a value for caesium radiation
+def cumulative_distribution(source_energy, e_energy=511):
+    integral = []
+    angles = [] 
+    values = np.arange(0,180, 0.5)
 
-# Experimental parameters
-
-source_energy = 511 # Defines the energy of incident gamma ray 
-e_energy = 511
-
-
-integral = []
-angles = []
-values = np.arange(0,180, 0.5)
-
-for i in values: # cumulative distribution function made from Kein Nishina area
-    theta_m  = 0
-    theta_p = i*np.pi/180
-    integral_est, err = mcintegral(theta_m, theta_p, source_energy)
-    integral.append(integral_est)
-    angles.append(i)
-
-# Binning the values from the cumulative distribution
+    for i in values: # cumulative distribution function made from Kein Nishina area
+        theta_m  = 0
+        theta_p = i*np.pi/180
+        integral_est, err = mcintegral(theta_m, theta_p, source_energy)
+        integral.append(integral_est)
+        angles.append(i)
+        
+        # Binning the values from the cumulative distribution
     
-for i in range(len(angles)):
-    if i == 0: # edge case 0 (beginning)
-        angles2 = [0]
-        errors = [0]
-        areas = [integral[i]]
-    else :
-        if i % 5 == 0: #binning values every 5 points
-            average = np.mean(integral[i-5:i])
-            error = np.std(integral[i-5:i])
-            areas.append(average)
-            errors.append(error)
-            angles2.append(angles[i-2])
+    for i in range(len(angles)):
+        if i == 0: # edge case 0 (beginning)
+            angles2 = [0]
+            errors = [0]
+            areas = [integral[i]]
+        else :
+            if i % 5 == 0: #binning values every 5 points
+                average = np.mean(integral[i-5:i])
+                error = np.std(integral[i-5:i])
+                areas.append(average)
+                errors.append(error)
+                angles2.append(angles[i-2])
+    
+    value180 = linear_interpolation(angles2, areas, 180) # Obtaining the total cross section from 0 to 180 degrees
+    areas.append(value180)
+    errors.append(0)
+    angles2.append(180)
 
-value180 = linear_interpolation(angles2, areas, 180)
-areas.append(value180)
-errors.append(0)
-angles2.append(180)
+    # Normalising the values from the distribution
+    areas = areas/areas[-1]
+    errors = errors/areas[-1]
+    
+    return angles2, areas, errors, value180
+    
+# Obtaining the angles, corresponding cumulative distribtuion value (binned), 
+#errors and the total cross section for all scattering angles 
 
-# Normalising the values from the distribution
-areas = areas/areas[-1]
-errors = errors/areas[-1]
+angles2, areas, errors, value180 = cumulative_distribution(511)
 
 # Plotting resulting binned distribution
+plt.figure()
 plt.scatter(angles2, areas, color =  "k")
 plt.title("CDF for Kein-Nishina cross section")
 plt.xlabel("Angle (degrees")
@@ -391,34 +327,18 @@ plt.ylabel("Probability")
 plt.show()
 
 #%%
-nain = -np.log(1 - 0.5286549105)/(value180cs*0.05) # finding number density of electrons in NaI(Tl) using Cs
+nain = 5.8684093929225495e29 # Number density of electrons (estimated using Klein Nishina and Cs-137 data)
 
-probabs = 1-np.exp(-nain*value180*0.05) # absolute probability of scattering
-probdect =  linear_interpolation(energies, peakratios, source_energy)# probability of detection occurring
+probabs = 1-np.exp(-nain * value180 * 0.05) # absolute probability of scattering
+probdect = linear_interpolation(energies, peakratios, source_energy)# probability of detection occurring
 probrel = probabs/(1-probdect) # relative probability of scattering if detection doesn't occur.
-
-# Exeperimental parameters for detector used (aluminimum)
-electron_density = 17.41e28
-scattererlength = 4e-4
-diameter = 15e-3 #detector diameter
-radius = 0.3 #radius at which detector is placed
 
 gain1 = 2.85e-3
 
 N = int(20000) # Initial intensity 
-scatter_angle = 30
-theta = scatter_angle * np.pi/180 # Converting to radians
-dtheta = theta_detector(radius, diameter)
-
-# Obtaining the total cross section taking into account the width of detector
-sigma, sigmasigma = mcintegral(theta-dtheta/2,theta+dtheta/2 , 662)
-
-# Expected signal for peak scattered energy
-analsig30 = analogsignal(scatter_angle, source_energy, gain1, e_energy)
 
 # Simulating spectrum with backscattering and compton edge
 botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, areas],probdect= probdect, relprob= probrel )
-
 
 plt.figure()
 plt.scatter(botheffects0.keys(), botheffects0.values(), label = "No scatter")
@@ -428,36 +348,6 @@ plt.ylabel("Counts")
 plt.grid()
 plt.show()
 
-#%%
-# Testing relative counts between different scattered angles using the Kein-Nishina distribution.
-
-angle1 = 30
-angle2 = 20
-
-theta1 = angle1*np.pi/180 # 10 degrees in radians
-dtheta1 = theta_detector(radius, diameter)
-sigma1, sigmasigma1 = mcintegral(theta-dtheta/2,theta+dtheta/2 )
-
-theta2 = angle2*np.pi/180 # 10 degrees in radians
-dtheta2 = theta_detector(radius, diameter)
-sigma2, sigmasigma2 = mcintegral(theta-dtheta/2,theta+dtheta/2 )
-
-n1 = 10000
-n2 = int(np.floor(np.exp(electron_density*scattererlength*(sigma2 - sigma1))*n1))
-
-analsig1 = analogsignal(angle1, source_energy, gain1, e_energy)
-analsig2 = analogsignal(angle2, source_energy, gain1, e_energy)
-
-spectrum1 = generate_noise(n1, analsig1, gain1)
-spectrum2 = generate_noise(n2, analsig2, gain1)
-
-plt.figure()
-plt.scatter(spectrum1.keys(), spectrum1.values(), label = str(angle1) + " degrees")
-plt.scatter(spectrum2.keys(), spectrum2.values(), label = str(angle2) + " degrees")
-plt.grid()
-plt.legend()
-plt.title("Checking relative count rates")
-plt.show()
 
 def localmaxima(arrayx, arrayy):
     arrayx = list(arrayx)
@@ -467,15 +357,16 @@ def localmaxima(arrayx, arrayy):
     for i in range(len(arrayy)):
         if i == 0:  # edge case 0 (beginning)
             previousmean = np.inf
-            currentmean = np.mean(arrayy[i:i+10])
-            nextmean = np.mean(arrayy[i+10:i+20])
+            currentmean = np.mean(arrayy[i:i+5])
+            nextmean = np.mean(arrayy[i+5:i+10])
         else:
-            if i % 10 == 0:  # binning values every 5 points
+            if i % 5 == 0:  # binning values every 5 points
                 previousmean = currentmean
                 currentmean = nextmean
-                nextmean = np.mean(arrayy[i+10:i+20])
-                if previousmean < currentmean and currentmean > nextmean:
+                nextmean = np.mean(arrayy[i+5:i+10])
+                if previousmean < currentmean and currentmean < nextmean:
                     n += 1
-                    maximumindex = i - 10 + np.argmax(arrayy[i - 10: i + 20])
+                    maximumindex = i - 5 + np.argmax(arrayy[i - 5: i + 10])
                     maxima.append((arrayx[maximumindex], arrayy[maximumindex]))
     return n, maxima
+
