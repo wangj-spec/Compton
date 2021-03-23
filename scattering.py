@@ -171,10 +171,10 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                 probability = angledist[1]
                 angle = linear_interpolation(probability, angles, seed)
 
-                if angle < 110:
+                if angle < 90:
                     continue # will not reach crystal
 
-                backsignal = backsignal = analogsignal(angle, analogsig / gain, gain)
+                backsignal = analogsignal(angle, analogsig / gain, gain)
                 tot_signal = backsignal + noise_signal
                 if tot_signal < 0:
                     continue  # not physical result
@@ -204,6 +204,31 @@ def find_ratio(channel_p, channel_m, counts):
     all_counts = np.sum(counts)
 
     return peak_counts / all_counts
+
+def localmaxima(arrayx, arrayy):
+    arrayx = list(arrayx)
+    arrayy = list(arrayy)
+
+    n = 0 # initialise counter
+    maxima = []
+
+    for i in range(len(arrayy)):
+        if i == 0:  # edge case 0 (beginning)
+            previousmean = np.inf
+            currentmean = np.mean(arrayy[i:i+10])
+            nextmean = np.mean(arrayy[i+10:i+20])
+        else:
+            if i % 10 == 0:  # binning values every 5 points
+                previousmean = currentmean
+                currentmean = nextmean
+                nextmean = np.mean(arrayy[i+10:i+20])
+
+                if previousmean < currentmean and currentmean > nextmean:
+                    n += 1
+                    maximumindex = i - 10 + np.argmax(arrayy[i - 10: i + 20])
+                    maxima.append((arrayx[maximumindex], arrayy[maximumindex]))
+
+    return n, maxima
 
 
 data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
