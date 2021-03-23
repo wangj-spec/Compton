@@ -156,11 +156,12 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
         detectionprob = rnd.random()
         probscatt_n = rnd.random()
 
-        seed = rnd.random()
-        noise_signal = norm.ppf(seed, loc=0, scale=det_res * max_signal / 2)  # Gaussian noise
+
 
         if detectionprob <= probdect:   #probability of normal absorption within detector
 
+            seed = rnd.random()
+            noise_signal = norm.ppf(seed, loc=0, scale=det_res * analogsig / 2)  # Gaussian noise
 
             tot_signal = analogsig + noise_signal
 
@@ -180,6 +181,10 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                 energy = analogsig / gain
                 scattered = analogsignal(angle, energy, gain)
                 signal = analogsig - scattered
+
+                seed2 = rnd.random()
+                noise_signal = norm.ppf(seed2, loc=0, scale=det_res * max_signal / 2)  # Gaussian noise
+
                 tot_signal = signal + noise_signal
 
                 if tot_signal < 0:
@@ -199,6 +204,10 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                     continue # will not reach crystal
 
                 backsignal = analogsignal(angle, analogsig / gain, gain)
+
+                seed2 = rnd.random()
+                noise_signal = norm.ppf(seed2, loc=0, scale=det_res * backsignal / 2)
+
                 tot_signal = backsignal + noise_signal
                 if tot_signal < 0:
                     continue  # not physical result
@@ -207,7 +216,6 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                 bins[bin_val] += 1
 
     return bins
-
 def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
     """
     Monte-Carlo integration of Klein-Nishina differential cross-section
