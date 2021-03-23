@@ -240,6 +240,16 @@ def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
     return integral_est, err
 
 def find_ratio(channel_p, channel_m, counts):
+    """
+    Finds ratio of counts within a certain channel range to total counts
+    :param channel_p:: int
+            Upper bound on channels
+    :param channel_m:: int
+            Lower bound on channels
+    :param counts:: 1d array
+            1d array of counts to be summed over to find ratop
+    :return: The ratio of counts within bounds channel_p, channel_m and total counts
+    """
     peak_counts = np.sum(counts[channel_m:channel_p])
     all_counts = np.sum(counts)
 
