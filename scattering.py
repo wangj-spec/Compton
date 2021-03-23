@@ -4,29 +4,47 @@ import random as rnd
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 
+# Classical electron radius, constant used in the Klein-Nishina cross sectional area.
 re = 2.8179 * 10 ** -15
 
-
 def photon_E(E_initial, theta, e_rest=511):
+    '''
+    Params:
+        E_inital:: float
+            Energy of incoming gamma ray
+        theta:: float
+            scatter angle
+        e_rest:: float
+            Rest mass energy for an electron in keV
+    Returns:
+        E_final:: float
+           Expected energy for given scattering angle.
+    '''
+    
+    if theta > np.pi:
+        raise Exception('Scattering angle defined from 0 to pi radians')
+    
     E_final = E_initial / (1 + (E_initial * (1 - np.cos(theta)) / e_rest))
 
     return E_final
 
 
-def Gaussian(x, const, sigma, u):
-    '''
-    Returns Guassian function for a given x value and Gaussian parameters.
-    sigma::float
-        Standard deviation
-    const::float
-        constant
-    u::float
-        mean value
-    '''
-    return (const / (sigma * np.sqrt(2 * np.pi))) * np.e ** (-0.5 * ((x - u) / sigma) ** 2)
-
-
 def analogsignal(angle, e0, gain, e_energy=511):
+    '''
+    Params:
+        angle:: float
+            Scattering angle
+        e0:: float
+            Initial energy of gamma ray
+        gain:: float
+            Gain in the detector
+        e_energy:: float
+            Electron rest mass energy
+    Returns:
+        analogsignal::float
+            Expected peak signal for given scattering angle and energy.
+    '''
+    
     # Calculating the scattering energy from the Compton relation
     energymeasure = e0 / (1 + (e0 / e_energy) * (1 - np.cos(np.deg2rad(angle))))
 
@@ -38,7 +56,14 @@ def analogsignal(angle, e0, gain, e_energy=511):
 
 def theta_detector(r, diam=50.8e-3):
     '''
-    Returns angluar range of the detector.
+    Params:
+        r::float
+            Distance to the detector
+        diam::float
+            Aperature diameter
+    Returns:
+        dtheta::float
+            angluar range spanned by the detector.
     '''
 
     dtheta = 2 * np.arcsin(diam / (2 * r))
@@ -46,15 +71,19 @@ def theta_detector(r, diam=50.8e-3):
     return dtheta
 
 
-def backscatter(energy, gain):
-    seed = rnd.random()
-    angle = norm.ppf(seed, loc=180, scale=0.05)  # angle choosing in degrees
-    signalmeasured = analogsignal(angle, energy, gain)
-
-    return signalmeasured
-
-
 def cross_diff(theta, E_initial, re=re):
+    '''
+    Params:
+        theta::float
+            Scattering angle
+        E_initial::float
+            Incoming gamma ray energy in keV
+        re::float
+            Classical electron radius
+    Returns:
+        cross_diff::float
+            Differential cross section for given angle.
+    '''
     E_scatter = photon_E(E_initial, theta)
     P = E_scatter / E_initial
 
@@ -65,15 +94,29 @@ def cross_diff(theta, E_initial, re=re):
 
 
 def linear_interpolation(array1, array2, x):
+    '''
+    Params:
+        array1::arraylike
+        array2::arraylike
+            data points for x and y available for interpolation.
+        x:: float
+            x point to be linearly interpolated         
+    Returns:
+        value::float
+            Linearly interpolated value
+    '''
+    
     for i in range(len(array1) - 1):
         current = array1[i]
-        next = array1[i+1]
-        if next > x:
-            value = array2[i] + (array2[i+1] - array2[i]) *(x - current)/(next - current)
+        next_val = array1[i+1]
+        if next_val > x:
+            value = array2[i] + (array2[i+1] - array2[i]) * (x - current) / (next_val - current)
         else:
             continue
+        
     if x >= array1[-1]:
-        value = array2[-1] + (array2[-1] - array2[-2])*(x - array1[-1])/(array1[-1]-array1[-2])
+        
+        value = array2[-1] + (array2[-1] - array2[-2]) * (x - array1[-1]) / (array1[-1]-array1[-2])
 
     return value
 
@@ -131,7 +174,7 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                 if angle < 110:
                     continue # will not reach crystal
 
-                backsignal = backscatter(analogsig / gain, gain)
+                backsignal = backsignal = analogsignal(angle, analogsig / gain, gain)
                 tot_signal = backsignal + noise_signal
                 if tot_signal < 0:
                     continue  # not physical result
@@ -332,3 +375,24 @@ plt.grid()
 plt.legend()
 plt.title("Checking relative count rates")
 plt.show()
+
+def localmaxima(arrayx, arrayy):
+    arrayx = list(arrayx)
+    arrayy = list(arrayy)
+    n = 0 # initialise counter
+    maxima = []
+    for i in range(len(arrayy)):
+        if i == 0:  # edge case 0 (beginning)
+            previousmean = np.inf
+            currentmean = np.mean(arrayy[i:i+10])
+            nextmean = np.mean(arrayy[i+10:i+20])
+        else:
+            if i % 10 == 0:  # binning values every 5 points
+                previousmean = currentmean
+                currentmean = nextmean
+                nextmean = np.mean(arrayy[i+10:i+20])
+                if previousmean < currentmean and currentmean > nextmean:
+                    n += 1
+                    maximumindex = i - 10 + np.argmax(arrayy[i - 10: i + 20])
+                    maxima.append((arrayx[maximumindex], arrayy[maximumindex]))
+    return n, maxima
