@@ -209,6 +209,22 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
     return bins
 
 def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
+    """
+    Monte-Carlo integration of Klein-Nishina differential cross-section
+    :param theta_m:: float
+            Lower bound of theta used in integral
+    :param theta_p:: float
+            Upper bound of theta used in integral
+    :param energy:: float
+            Incident energy of scattering photon
+    :param N:: int
+            Number of iterations used in the Monte-Carlo integration process
+    returns:
+            integral_est:: flaot
+            Estimated value of integral by Monte-Carlo process
+            err:: float
+            Estimated error in integral      
+    """
     int_vol = 2 * np.pi * (theta_p - theta_m)
     int_vals = []
 
