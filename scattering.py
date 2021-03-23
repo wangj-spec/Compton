@@ -122,6 +122,30 @@ def linear_interpolation(array1, array2, x):
 
 
 def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0):
+    """
+    Simulates a detector using the Monte-Carlo method, and returns an observed energy spectrum
+    :param N:: int
+            Number of incident photons of energy source energy
+    :param analogsig:: float
+            Expected analog signal due to source energy
+    :param gain:: float
+            Voltage to Energy ratio within detector
+    :param angledist:: 2d array
+            Cumulative distribution function of angle, of form [angles, probability]
+    :param det_res:: float
+            Detector resolution at 662 keV
+    :param max_signal:: float
+            Max voltage expected within detector, expects 5V
+    :param bit_depth:: int
+            Max no. of bits used to define channels, expected 9 => 512 channels
+    :param probdect:: float
+            Probability of absorbing incident photon within the crystal with no other events occurring
+    :param relprob:: float
+            Probability of incident photon compton scattering with crystal if it is not absorbed
+    returns:
+            bins:: dictionary
+            Dictionary with channels as keys and count numbers as values
+    """
     bins = {}
 
     for i in range(2 ** bit_depth):
