@@ -111,6 +111,7 @@ def linear_interpolation(array1, array2, x):
         next_val = array1[i+1]
         if next_val > x:
             value = array2[i] + (array2[i+1] - array2[i]) * (x - current) / (next_val - current)
+            break
         else:
             continue
         
