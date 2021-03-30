@@ -121,8 +121,7 @@ def linear_interpolation(array1, array2, x):
 
     return value
 
-
-def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0):
+def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0, anglecheck = False, anglebin = 0):
     """
     Simulates a detector using the Monte-Carlo method, and returns an observed energy spectrum
     :param N:: int
@@ -143,23 +142,36 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
             Probability of absorbing incident photon within the crystal with no other events occurring
     :param relprob:: float
             Probability of incident photon compton scattering with crystal if it is not absorbed
+    :param anglecheck:: bool
+            Return angle distribution of scattering
+    :param anglebin:: float
+            Size of bins in the angle distribution
     returns:
             bins:: dictionary
             Dictionary with channels as keys and count numbers as values
+            compangles:: dictionary
+            Dictionary with angles as keys and count numbers as values for the compton plateau
+            backscangles:: dictionary
+            Dictionary with angles as keys and count numbers as values for the backscattered photons
     """
     bins = {}
 
     for i in range(2 ** bit_depth):
         bins[i] = 0
 
+    if anglecheck:
+        compangles = {}
+        backscangles = {}
+        for i in np.arange(anglebin / 2, 180, anglebin):
+            compangles[i] = 0
+            backscangles[i] = 0
+
     for i in range(N):
 
         detectionprob = rnd.random()
         probscatt_n = rnd.random()
 
-
-
-        if detectionprob <= probdect:   #probability of normal absorption within detector
+        if detectionprob <= probdect:  # probability of normal absorption within detector
 
             seed = rnd.random()
             noise_signal = norm.ppf(seed, loc=0, scale=det_res * analogsig / 2)  # Gaussian noise
@@ -172,12 +184,12 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
 
         elif detectionprob > probdect:
 
-            if probscatt_n <= relprob: # compton scattering within detector
+            if probscatt_n <= relprob:  # compton scattering within detector
                 seed = rnd.random()
 
                 angles = angledist[0]
                 probability = angledist[1]
-                angle = linear_interpolation(probability, angles,seed)
+                angle = linear_interpolation(probability, angles, seed)
 
                 energy = analogsig / gain
                 scattered = analogsignal(angle, energy, gain)
@@ -195,14 +207,18 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
 
                 bins[bin_val] += 1
 
-            else: # backscattering
+                if anglecheck:
+                    angleval = np.floor(angle*180/np.pi / anglebin) * anglebin + anglebin / 2
+                    compangles[angleval] += 1
+
+            else:  # backscattering
                 seed = rnd.random()
                 angles = angledist[0]
                 probability = angledist[1]
                 angle = linear_interpolation(probability, angles, seed)
 
-                if angle < 90:
-                    continue # will not reach crystal
+                if angle < np.pi / 2:
+                    continue  # will not reach crystal
 
                 backsignal = analogsignal(angle, analogsig / gain, gain)
 
@@ -212,12 +228,19 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                 tot_signal = backsignal + noise_signal
                 if tot_signal < 0:
                     continue  # not physical result
+
                 bin_val = np.floor((2 ** bit_depth) * tot_signal / max_signal)
 
                 bins[bin_val] += 1
 
-    return bins
+                if anglecheck:
+                    angleval = np.floor(angle * 180 / np.pi / anglebin) * anglebin + anglebin / 2
+                    backscangles[angleval] += 1
 
+    if anglecheck:
+        return bins, compangles, backscangles
+    else:
+        return bins
 
 def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
     int_vol = 2 * np.pi * (theta_p - theta_m)
