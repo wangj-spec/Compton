@@ -1,11 +1,17 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 30 18:04:42 2021
+
+@author: leonardobossi1
+"""
 
 import numpy as np
 import random as rnd
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 
-# Classical electron radius, constant used in the Klein-Nishina cross sectional area.
-re = 2.8179 * 10 ** -15
+re = 2.8179 * 10 ** -15 # Classical electron radius, constant used in the Klein-Nishina cross sectional area.
 bit_depth = 9
 max_signal = 5
 
@@ -127,28 +133,30 @@ def linear_interpolation(array1, array2, x):
 def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0, anglecheck = False, anglebin = 0):
     """
     Simulates a detector using the Monte-Carlo method, and returns an observed energy spectrum
-    :param N:: int
+    Params:
+        N:: int
             Number of incident photons of energy source energy
-    :param analogsig:: float
+        analogsig:: float
             Expected analog signal due to source energy
-    :param gain:: float
+        gain:: float
             Voltage to Energy ratio within detector
-    :param angledist:: 2d array
+        angledist:: 2d array
             Cumulative distribution function of angle, of form [angles, probability]
-    :param det_res:: float
+        det_res:: float
             Detector resolution at 662 keV
-    :param max_signal:: float
+        max_signal:: float
             Max voltage expected within detector, expects 5V
-    :param bit_depth:: int
+        bit_depth:: int
             Max no. of bits used to define channels, expected 9 => 512 channels
-    :param probdect:: float
+        probdect:: float
             Probability of absorbing incident photon within the crystal with no other events occurring
-    :param relprob:: float
+        relprob:: float
             Probability of incident photon compton scattering with crystal if it is not absorbed
     returns:
-            bins:: dictionary
+        bins:: dictionary
             Dictionary with channels as keys and count numbers as values
     """
+    
     bins = {}
 
     for i in range(2 ** bit_depth):
@@ -207,6 +215,7 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
                     compangles[angleval] += 1
 
             else:  # backscattering
+                
                 seed = rnd.random()
                 angles = angledist[0]
                 probability = angledist[1]
@@ -238,7 +247,26 @@ def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, b
         return bins
 
 
-def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
+def mcintegral(theta_m, theta_p, energy ,N = 10000):
+    '''
+    Monte Carlo integration.
+    
+    Params:
+        theta_m:: float
+        theta_p:: float
+            smaller and larger angle values being integrated over respectively.
+        energy:: float
+            Peak energy value of incoming photon (used to calculate differential
+            cross section).
+        N:: int
+            Number of iterations
+    Returns:
+        integral_est::float
+        err::float
+            The estimated value for the integral and its associated error
+            
+        
+    '''
     int_vol = 2 * np.pi * (theta_p - theta_m)
     int_vals = []
 
@@ -257,47 +285,47 @@ def mcintegral(theta_m, theta_p, energy ,N = 10000 ):
 
 
 def find_ratio(channel_p, channel_m, counts):
+    '''
+    Params:
+        channel_p:: int
+        channel_m:: int
+            Higher and lower bounds for the channels making up a peak
+        counts:: int
+            Counts as a function of channel number
+    Returns:
+        ratio:: float
+            Ratio between the counts between channel_m and channel_p and the
+            total counts.
+    '''
+    
     peak_counts = np.sum(counts[channel_m:channel_p])
     all_counts = np.sum(counts)
+    ratio = peak_counts / all_counts
+    
+    return ratio
 
-    return peak_counts / all_counts
-
-
-data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
-data2 = np.genfromtxt("Experiment_Data.csv", delimiter = ",", max_rows= 7,skip_header=1, dtype="str")
-
-# Reading the data (from provided data ile)
-channel,nosource,na22calib,mn54calib,cs137calib,am241calib,c20cs137,b20cs137,c30cs137,b30cs137,c45cs137,b45cs137 = data
-
-# Removing the background noise
-na22calib -= nosource
-mn54calib -= nosource
-cs137calib -= nosource
-am241calib -= nosource
-
-am241ratio =  find_ratio(28,15, am241calib)
-cs137ratio =  find_ratio(210,160, cs137calib)
-mn54ratio = find_ratio(260, 210, mn54calib)
-
-peakratios = [am241ratio, cs137ratio, mn54ratio]
-energies = [59, 661.657, 834.838] # peak energies
-
-
-plt.figure()
-plt.plot(energies, peakratios)
-plt.scatter(energies, peakratios, marker='x', color='k', label='datapoints from experimental calibration data')
-plt.title("Probability of detection for Gamma rays (peak counts to total counts ratio)")
-plt.xlabel("Energy of peak in keV")
-plt.ylabel("Peak to total ratio")
-plt.grid()
-plt.legend()
-
-
-# Obtaining the cumulative distribution for probability of scattering using 
-# Klein Nishina
-source_energy= 662
 
 def cumulative_distribution(source_energy, e_energy=511):
+    '''
+    Params:
+        source_energy:: float
+            Peak energy of the source being used in keV.
+        e_energy:: float
+            electron rest mass energy, default to 511 keV
+    Returns:
+        angles2:: list
+            scattering angle
+        c_prob:: list
+            Corresponding cumulative probability (normalised) binned for every
+            5 datapoints 
+        errors:: list
+            Corresponding errors for values.
+        value180::
+            cumulative cross sectional value at an scattering angle of 180
+            degrees. This is the value of the total cross sectional area as 
+            it is not normalised.
+            
+    '''
     integral = []
     angles = [] 
     values = np.arange(0,180, 0.5)
@@ -315,28 +343,39 @@ def cumulative_distribution(source_energy, e_energy=511):
         if i == 0: # edge case 0 (beginning)
             angles2 = [0]
             errors = [0]
-            areas = [integral[i]]
+            c_prob = [integral[i]]
         else :
             if i % 5 == 0: #binning values every 5 points
                 average = np.mean(integral[i-5:i])
                 error = np.std(integral[i-5:i])
-                areas.append(average)
+                c_prob.append(average)
                 errors.append(error)
                 angles2.append(angles[i-2])
     
-    value180 = linear_interpolation(angles2, areas, np.pi) # Obtaining the total cross section from 0 to 180 degrees
-    areas.append(value180)
+    value180 = linear_interpolation(angles2, c_prob, np.pi) # Obtaining the total cross section from 0 to 180 degrees
+    c_prob.append(value180)
     errors.append(0)
     angles2.append(np.pi)
 
     # Normalising the values from the distribution
-    areas = areas/areas[-1]
-    errors = errors/areas[-1]
+    c_prob = c_prob/c_prob[-1]
+    errors = errors/c_prob[-1]
     
-    return angles2, areas, errors, value180
+    return angles2, c_prob, errors, value180
     
 
 def localmaxima(arrayx, arrayy):
+    '''
+    Params:
+        arrayx:: numpy array
+        arrayy:: numpy array
+            x and y values for a given dataset.
+    Returns:
+        n:: int
+            Number of maxima detected in given x and y data.
+        maxima:: list
+            List of the positions of the maxima and the corresponding y values.
+    '''
     arrayx = list(arrayx)
     arrayy = list(arrayy)
     n = 0 # initialise counter
@@ -361,14 +400,52 @@ def localmaxima(arrayx, arrayy):
                     
     return n, maxima
 
+
+
+#%%
+    
+data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
+data2 = np.genfromtxt("Experiment_Data.csv", delimiter = ",", max_rows= 7,skip_header=1, dtype="str")
+
+# Reading the data (from provided data ile)
+channel,nosource,na22calib,mn54calib,cs137calib,am241calib,c20cs137,b20cs137,c30cs137,b30cs137,c45cs137,b45cs137 = data
+
+# Removing the background noise
+na22calib -= nosource
+mn54calib -= nosource
+cs137calib -= nosource
+am241calib -= nosource
+
+# Finding the peak to total ratios and linearly interpolating
+am241ratio =  find_ratio(28,15, am241calib)
+cs137ratio =  find_ratio(210,160, cs137calib)
+mn54ratio = find_ratio(260, 210, mn54calib)
+
+peakratios = [am241ratio, cs137ratio, mn54ratio]
+energies = [59, 661.657, 834.838] # peak energies
+
+plt.figure()
+plt.plot(energies, peakratios)
+plt.scatter(energies, peakratios, marker='x', color='k', label='datapoints from experimental calibration data')
+plt.title("Probability of detection for Gamma rays (peak counts to total counts ratio)")
+plt.xlabel("Energy of peak in keV")
+plt.ylabel("Peak to total ratio")
+plt.grid()
+plt.legend()
+
+
+# Obtaining the cumulative distribution for probability of scattering using 
+# Klein Nishina
+source_energy= 662
+
 # Obtaining the angles, corresponding cumulative distribtuion value (binned), 
 #errors and the total cross section for all scattering angles 
 
-angles2, areas, errors, value180 = cumulative_distribution(662)
+angles2, c_prob, errors, value180 = cumulative_distribution(662)
 
 # Plotting resulting binned distribution
 plt.figure()
-plt.scatter(angles2, areas, color =  "k")
+plt.scatter(angles2, c_prob, color =  "k")
 plt.title("CDF for Kein-Nishina cross section")
 plt.xlabel("Angle (degrees")
 plt.ylabel("Probability")
@@ -386,7 +463,7 @@ gain1 = 2.85e-3
 N = int(65000) # Initial intensity 
 
 # Simulating spectrum with backscattering and compton edge
-botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, areas],probdect= probdect, relprob= probrel )
+botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel )
 
 plt.figure()
 plt.scatter(botheffects0.keys(), botheffects0.values(), label = "Energy peak= "+str(source_energy)+' keV')
@@ -399,7 +476,7 @@ plt.show()
 x = localmaxima(botheffects0.keys(), botheffects0.values())
 
 # Iterating the simulation to find the error in the peak values
-iterations = 20
+iterations = 2
 
 backscat_peak=[]
 comptonedge_peak=[]
@@ -407,7 +484,7 @@ main_peak=[]
 
 for i in range(iterations):
     print(i)
-    sim_data = generate_noise(N, source_energy * gain1, gain1, [angles2, areas],probdect= probdect, relprob= probrel)
+    sim_data = generate_noise(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel)
     peak_points = localmaxima(sim_data.keys(), sim_data.values())[1]
     
     
@@ -423,11 +500,9 @@ for i in range(iterations):
     if len(peak_points) == 1:
         main_peak.append(peak_points[0])
         
-        
-source_energy = 662
+
 
 plt.figure()
-
 cross_sec = []
 theta_range = np.arange(0, np.pi-0.02, 0.01)
 
@@ -437,35 +512,38 @@ for ang in theta_range:
 
 plt.plot(theta_range * 180/np.pi, cross_sec)
 plt.xlabel('angle (degrees)')
+plt.ylabel('cross sectional value')
+plt.title('cross sectional area for a small angle range as a function of scattering angle')
 plt.grid()
 
-rad_ang = 36 * np.pi/180
-
-Expected_compton = photon_E(662, rad_ang)
-expected_signal2 = analogsignal(0, 662 - Expected_compton, gain1) 
-
-backscater_signal = analogsignal(0, photon_E(662, np.pi/2), gain1) 
-
-expected_bin = np.floor((2 ** bit_depth) * expected_signal2/ max_signal)
-backscat_bin = np.floor((2 ** bit_depth) * backscater_signal/ max_signal)
 
     
 #%%
+# Calculating the expected bin value for the Compton edge and the backscattering
 
-angles2, areas, errors, value180 = cumulative_distribution(662)
-test= generate_noise(100000, source_energy * gain1, gain1, [angles2, areas],probdect= probdect, relprob= probrel )
+Expected_compton = photon_E(source_energy, np.pi)
+expected_signal2 = analogsignal(0, source_energy- Expected_compton, gain1) 
+
+backscater_signal = analogsignal(0, photon_E(source_energy, np.pi), gain1) 
+
+compton_bin = np.floor((2 ** bit_depth) * expected_signal2/ max_signal)
+backscat_bin = np.floor((2 ** bit_depth) * backscater_signal/ max_signal)
+
+
+angles2, c_prob, errors, value180 = cumulative_distribution(662)
+
+# Test case
+test= generate_noise(65000, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel )
 
 plt.figure()
 
 plt.scatter(test.keys(), test.values(), label = "Energy peak= "+str(source_energy)+' keV')
-plt.axvline(backscat_bin+20, color = 'k', label= 'backscatter peak')
-plt.axvline(expected_bin+20, color = 'r', label='compton peak')
+plt.axvline(backscat_bin, color = 'k', label= 'backscatter peak')
+plt.axvline(compton_bin, color = 'r', label='compton peak')
 plt.legend()
 
     
-    
-    
-    
+
     
     
     
