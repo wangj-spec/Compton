@@ -130,7 +130,7 @@ def linear_interpolation(array1, array2, x):
     return value
 
 
-def generate_noise(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0, anglecheck = False, anglebin = 0):
+def spec_sim(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_depth=9, probdect=1, relprob=0, anglecheck = False, anglebin = 0):
     """
     Simulates a detector using the Monte-Carlo method, and returns an observed energy spectrum
     Params:
@@ -332,8 +332,8 @@ def cumulative_distribution(source_energy, e_energy=511):
 
     for i in values: # cumulative distribution function made from Kein Nishina area
         theta_m  = 0
-        theta_p = i*np.pi/180
-        integral_est, err = mcintegral(theta_m, theta_p, source_energy)
+        theta_p = i *np.pi/180
+        integral_est, err = mcintegral(theta_m, theta_p, source_energy, 20000)
         integral.append(integral_est)
         angles.append(i * np.pi/180)
         
@@ -417,17 +417,18 @@ def comptonedge(arrayx, arrayy):
     """
     arrayx = list(arrayx)
     arrayy = list(arrayy)
-    compedge = []
 
     binnedvalues = []
     binnedchannels = []
 
     for i in range(len(arrayy)): # binning values
-        if i % 10 == 0:
+        if i % 5 == 0:
             narray = list(test.values())
-            mean = np.mean(narray[i:i + 10])
+            mean = np.mean(narray[i:i + 5])
             binnedvalues.append(mean)
-            binnedchannels.append(i + 5)
+            binnedchannels.append(i + 2)
+    plt.figure()
+    plt.scatter(binnedchannels, binnedvalues)
 
     for i in range(len(binnedvalues)-1): # finding the compton valley
         if i == 0:
@@ -447,16 +448,19 @@ def comptonedge(arrayx, arrayy):
         nextmean = binnedvalues.pop()
         prevgrad = currentmean - previousmean
         nextgrad = nextmean - currentmean
-        print(len(binnedvalues))
-        if nextgrad < prevgrad/2:
-            value = arrayy[(len(binnedvalues)+1)*10+5]
-            channel = arrayx[(len(binnedvalues)+1)*10+5]
+        
+        if abs((nextgrad-prevgrad)/prevgrad) < 0.05:
+            
+            value = arrayy[(len(binnedvalues)+1)*5+2]
+            channel = arrayx[(len(binnedvalues)+1)*5+2]
             break
 
     return  channel, value
 
+
 #%%
-    
+source_energy= 662
+
 data = np.loadtxt("Experiment_Data.csv", delimiter = ",", skiprows= 7, unpack = True )
 data2 = np.genfromtxt("Experiment_Data.csv", delimiter = ",", max_rows= 7,skip_header=1, dtype="str")
 
@@ -486,75 +490,6 @@ plt.ylabel("Peak to total ratio")
 plt.grid()
 plt.legend()
 
-
-# Obtaining the cumulative distribution for probability of scattering using 
-# Klein Nishina
-source_energy= 662
-
-# Obtaining the angles, corresponding cumulative distribtuion value (binned), 
-#errors and the total cross section for all scattering angles 
-
-angles2, c_prob, errors, value180 = cumulative_distribution(662)
-
-# Plotting resulting binned distribution
-plt.figure()
-plt.scatter(angles2, c_prob, color =  "k")
-plt.title("CDF for Kein-Nishina cross section")
-plt.xlabel("Angle (degrees")
-plt.ylabel("Probability")
-plt.show()
-
-#%%
-nain = 5.8684093929225495e29 # Number density of electrons (estimated using Klein Nishina and Cs-137 data)
-
-probabs = 1-np.exp(-nain * value180 * 0.05) # absolute probability of scattering
-probdect = linear_interpolation(energies, peakratios, source_energy)# probability of detection occurring
-probrel = probabs/(1-probdect) # relative probability of scattering if detection doesn't occur.
-
-gain1 = 2.85e-3
-
-N = int(65000) # Initial intensity 
-
-# Simulating spectrum with backscattering and compton edge
-botheffects0 = generate_noise(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel )
-
-plt.figure()
-plt.scatter(botheffects0.keys(), botheffects0.values(), label = "Energy peak= "+str(source_energy)+' keV')
-plt.title("Simulated Compton edge")
-plt.xlabel("Channel")
-plt.ylabel("Counts")
-plt.grid()
-plt.show()
-
-x = localmaxima(botheffects0.keys(), botheffects0.values())
-
-# Iterating the simulation to find the error in the peak values
-iterations = 2
-
-backscat_peak=[]
-comptonedge_peak=[]
-main_peak=[]
-
-for i in range(iterations):
-    print(i)
-    sim_data = generate_noise(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel)
-    peak_points = localmaxima(sim_data.keys(), sim_data.values())[1]
-    
-    
-    if len(peak_points) == 3:
-        backscat_peak.append(peak_points[0])
-        comptonedge_peak.append(peak_points[1])
-        main_peak.append(peak_points[2])
-        
-    if len(peak_points) == 2:
-        comptonedge_peak.append(peak_points[0])
-        main_peak.append(peak_points[1])
-        
-    if len(peak_points) == 1:
-        main_peak.append(peak_points[0])
-        
-
-
 plt.figure()
 cross_sec = []
 theta_range = np.arange(0, np.pi-0.02, 0.01)
@@ -570,6 +505,87 @@ plt.title('cross sectional area for a small angle range as a function of scatter
 plt.grid()
 
 
+#%%
+# Finding error of single-source calibration using MC simulation
+
+# Obtaining the cumulative distribution for probability of scattering using 
+# Klein Nishina
+source_energy= 662
+
+# Obtaining the angles, corresponding cumulative distribtuion value (binned), 
+#errors and the total cross section for all scattering angles 
+
+angles2, c_prob, errors, value180 = cumulative_distribution(source_energy)
+
+# Plotting resulting binned distribution
+plt.figure()
+plt.scatter(angles2, c_prob, color =  "k", marker = '.')
+plt.title("CDF for Kein-Nishina cross section")
+plt.xlabel("Angle (radians)")
+plt.ylabel("Cumulative probability")
+plt.show()
+
+# Defining parameters to calculate probabilties of scattering events
+
+nain = 5.8684093929225495e29 # Number density of electrons (estimated using Klein Nishina and Cs-137 data)
+probabs = 1-np.exp(-nain * value180 * 0.05) # absolute probability of scattering
+probdect = linear_interpolation(energies, peakratios, source_energy)# probability of detection occurring
+probrel = probabs/(1-probdect) # relative probability of scattering if detection doesn't occur.
+
+gain1 = 2.85e-3
+
+N = 65000 # Initial intensity 
+
+# Simulating spectrum with backscattering and compton edge
+botheffects0 = spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel )
+
+plt.figure()
+plt.scatter(botheffects0.keys(), botheffects0.values(), label = "Energy peak= "+str(source_energy)+' keV')
+plt.title("Simulated Compton edge")
+plt.xlabel("Channel")
+plt.ylabel("Counts")
+plt.grid()
+plt.show()
+
+edge_coords = comptonedge(botheffects0.keys(), botheffects0.values())
+print(edge_coords)
+
+# Iterating the simulation to find the error in the peak values
+iterations = 1
+
+backscat_peak=[]
+comptonedge_peak=[]
+main_peak=[]
+
+comp_edge = []
+
+for i in range(iterations):
+    print(i)
+    sim_data = spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel)
+    peak_points = localmaxima(sim_data.keys(), sim_data.values())[1]
+    edge_coords = comptonedge(sim_data.keys(), sim_data.values())
+    
+    comp_edge.append(edge_coords)
+    
+    print(len(peak_points))
+    
+    if len(peak_points) ==4:
+        print(peak_points)
+    
+    if len(peak_points) == 3:
+        backscat_peak.append(peak_points[0])
+        comptonedge_peak.append(peak_points[1])
+        main_peak.append(peak_points[2])
+        
+    if len(peak_points) == 2:
+        backscat_peak.append(peak_points[0])
+        main_peak.append(peak_points[1])
+        
+    if len(peak_points) == 1:
+        main_peak.append(peak_points[0])
+        
+        
+
     
 #%%
 # Calculating the expected bin value for the Compton edge and the backscattering
@@ -583,10 +599,8 @@ compton_bin = np.floor((2 ** bit_depth) * expected_signal2/ max_signal)
 backscat_bin = np.floor((2 ** bit_depth) * backscater_signal/ max_signal)
 
 
-angles2, c_prob, errors, value180 = cumulative_distribution(662)
-
 # Test case
-test= generate_noise(65000, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel )
+test= spec_sim(65000, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel, det_res = 0.1)
 
 plt.figure()
 
@@ -596,7 +610,6 @@ plt.axvline(compton_bin, color = 'r', label='compton peak')
 plt.legend()
 
     
-
     
     
     
