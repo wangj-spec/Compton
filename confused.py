@@ -589,6 +589,7 @@ for i in range(iterations):
     
 #%%
 # Calculating the expected bin value for the Compton edge and the backscattering
+source_energy = 511
 
 Expected_compton = photon_E(source_energy, np.pi)
 expected_signal2 = analogsignal(0, source_energy- Expected_compton, gain1) 
@@ -600,7 +601,7 @@ backscat_bin = np.floor((2 ** bit_depth) * backscater_signal/ max_signal)
 
 
 # Test case
-test= spec_sim(65000, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel, det_res = 0.1)
+test= spec_sim(65000, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel, det_res = 0.075)
 
 plt.figure()
 
