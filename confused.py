@@ -401,6 +401,59 @@ def localmaxima(arrayx, arrayy):
     return n, maxima
 
 
+def comptonedge(arrayx, arrayy):
+    """
+    Finds the Compton edge from an energy spectrum due to a photon incident on a NaI(Tl) detector
+    by looking at the gradient change before the Compton valley, with an associated error of 5 channels
+    :param arrayx:: array
+            The channels of the energy spectrum
+    :param arrayy:: array 
+            The counts of the energy spectrum
+    :return:
+            channel:: int
+            The channel at which the compton edge is seen
+            value:: int
+            The counts at the channel
+    """
+    arrayx = list(arrayx)
+    arrayy = list(arrayy)
+    compedge = []
+
+    binnedvalues = []
+    binnedchannels = []
+
+    for i in range(len(arrayy)): # binning values
+        if i % 10 == 0:
+            narray = list(test.values())
+            mean = np.mean(narray[i:i + 10])
+            binnedvalues.append(mean)
+            binnedchannels.append(i + 5)
+
+    for i in range(len(binnedvalues)-1): # finding the compton valley
+        if i == 0:
+            previousmean = np.inf
+            currentmean = binnedvalues.pop() # walking backwards from the end
+            nextmean = binnedvalues.pop()
+        else:
+            previousmean = currentmean
+            currentmean = nextmean
+            nextmean = binnedvalues.pop()
+            if previousmean > currentmean and nextmean > currentmean: # compton valley found
+                break
+
+    for i in range(len(binnedvalues)-1): # point of gradient change
+        previousmean = currentmean
+        currentmean = nextmean
+        nextmean = binnedvalues.pop()
+        prevgrad = currentmean - previousmean
+        nextgrad = nextmean - currentmean
+        print(len(binnedvalues))
+        if nextgrad < prevgrad/2:
+            value = arrayy[(len(binnedvalues)+1)*10+5]
+            channel = arrayx[(len(binnedvalues)+1)*10+5]
+            break
+
+    return  channel, value
 
 #%%
     
