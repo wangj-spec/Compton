@@ -152,6 +152,10 @@ def spec_sim(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_dep
             Probability of absorbing incident photon within the crystal with no other events occurring
         relprob:: float
             Probability of incident photon compton scattering with crystal if it is not absorbed
+        anglecheck:: bool
+            If True, will return angle distributions for the backscatter and the compton plateau
+        anglebin:: float
+            How wide the bins on the angle distribution will be (in degrees)
     returns:
         bins:: dictionary
             Dictionary with channels as keys and count numbers as values
