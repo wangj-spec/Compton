@@ -541,6 +541,15 @@ plt.show()
 edge_coords = comptonedge(botheffects0.keys(), botheffects0.values())
 print(edge_coords)
 
+# Iterating the simulation to find the error in the peak values
+iterations = 20
+
+backscat_peak = []
+comptonedge_peak = []
+comptonedges = []
+main_peak = []
+
+
 for i in range(iterations):
     print(i)
     sim_data = generate_noise(N, source_energy * gain1, gain1, [angles2, areas], probdect=probdect, relprob=probrel)
