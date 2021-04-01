@@ -405,35 +405,15 @@ def localmaxima(arrayx, arrayy):
     return n, maxima
 
 
-def comptonedge(arrayx, arrayy):
-    """
-    Finds the Compton edge from an energy spectrum due to a photon incident on a NaI(Tl) detector
-    by looking at the gradient change before the Compton valley, with an associated error of 5 channels
-    :param arrayx:: array
-            The channels of the energy spectrum
-    :param arrayy:: array 
-            The counts of the energy spectrum
-    :return:
-            channel:: int
-            The channel at which the compton edge is seen
-            value:: int
-            The counts at the channel
-    """
+def comptonedge(arrayx, arrayy, binsize = 6):
     arrayx = list(arrayx)
     arrayy = list(arrayy)
-
+    compedge = []
     binnedvalues = []
-    binnedchannels = []
-
     for i in range(len(arrayy)): # binning values
-        if i % 5 == 0:
-            narray = list(test.values())
-            mean = np.mean(narray[i:i + 5])
+        if i % binsize == 0:
+            mean = np.mean(arrayy[i:i + binsize])
             binnedvalues.append(mean)
-            binnedchannels.append(i + 2)
-    plt.figure()
-    plt.scatter(binnedchannels, binnedvalues)
-
     for i in range(len(binnedvalues)-1): # finding the compton valley
         if i == 0:
             previousmean = np.inf
@@ -446,18 +426,25 @@ def comptonedge(arrayx, arrayy):
             if previousmean > currentmean and nextmean > currentmean: # compton valley found
                 break
 
-    for i in range(len(binnedvalues)-1): # point of gradient change
+    j = 0
+    for i in range(len(binnedvalues)-1): # inflection point
         previousmean = currentmean
         currentmean = nextmean
         nextmean = binnedvalues.pop()
         prevgrad = currentmean - previousmean
         nextgrad = nextmean - currentmean
-        
-        if abs((nextgrad-prevgrad)/prevgrad) < 0.05:
-            
-            value = arrayy[(len(binnedvalues)+1)*5+2]
-            channel = arrayx[(len(binnedvalues)+1)*5+2]
-            break
+
+        if nextgrad < prevgrad: # local minimum
+            j = 1
+            continue
+        if j == 1:
+            if nextgrad > prevgrad:
+                value = arrayy[int((len(binnedvalues)+1)*binsize+np.floor(binsize/2 + 1/2))]
+                channel = arrayx[int((len(binnedvalues)+1)*binsize+np.floor(binsize/2 + 1/2))]
+                break
+            else:
+                j = 0
+                continue
 
     return  channel, value
 
@@ -554,40 +541,24 @@ plt.show()
 edge_coords = comptonedge(botheffects0.keys(), botheffects0.values())
 print(edge_coords)
 
-# Iterating the simulation to find the error in the peak values
-iterations = 1
-
-backscat_peak=[]
-comptonedge_peak=[]
-main_peak=[]
-
-comp_edge = []
-
 for i in range(iterations):
     print(i)
-    sim_data = spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel)
+    sim_data = generate_noise(N, source_energy * gain1, gain1, [angles2, areas], probdect=probdect, relprob=probrel)
     peak_points = localmaxima(sim_data.keys(), sim_data.values())[1]
-    edge_coords = comptonedge(sim_data.keys(), sim_data.values())
-    
-    comp_edge.append(edge_coords)
-    
-    print(len(peak_points))
-    
-    if len(peak_points) ==4:
-        print(peak_points)
-    
+
     if len(peak_points) == 3:
         backscat_peak.append(peak_points[0])
-        comptonedge_peak.append(peak_points[1])
-        main_peak.append(peak_points[2])
-        
+        comptonedge_peak.append(peak_points[-2])
+        main_peak.append(peak_points[-1])
+
     if len(peak_points) == 2:
         backscat_peak.append(peak_points[0])
-        main_peak.append(peak_points[1])
-        
+        main_peak.append(peak_points[-1])
+
     if len(peak_points) == 1:
-        main_peak.append(peak_points[0])
-        
+        main_peak.append(peak_points[-1])
+
+    comptonedges.append(comptonedge(sim_data.keys(), sim_data.values()))
         
 
     
