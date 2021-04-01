@@ -158,6 +158,10 @@ def spec_sim(N, analogsig, gain, angledist, det_res=0.075, max_signal=5, bit_dep
     returns:
         bins:: dictionary
             Dictionary with channels as keys and count numbers as values
+        compangles:: dictionary
+            For the compton plateau distribution: Dictionary with angles as keys and count numbers as values
+        backscangles:: dictionary
+            For the backscatter distribution: Dictionary with angles as keys and count numbers as values
     """
 
     bins = {}
