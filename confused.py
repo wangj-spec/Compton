@@ -497,7 +497,7 @@ plt.grid()
 
 # Finding error of single-source calibration using MC simulation
 graderrors = []
-photopeaks = [500,600,700,800,900]
+photopeaks = np.arange(500, 901, 50)
 for e in photopeaks:
 
 
