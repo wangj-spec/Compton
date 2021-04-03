@@ -494,93 +494,105 @@ plt.grid()
 
 
 #%%
+
 # Finding error of single-source calibration using MC simulation
-
-# Obtaining the cumulative distribution for probability of scattering using 
-# Klein Nishina
-source_energy= 662
-
-# Obtaining the angles, corresponding cumulative distribtuion value (binned), 
-#errors and the total cross section for all scattering angles 
-
-angles2, c_prob, errors, value180 = cumulative_distribution(source_energy)
-
-# Plotting resulting binned distribution
-plt.figure()
-plt.scatter(angles2, c_prob, color =  "k", marker = '.')
-plt.title("CDF for Kein-Nishina cross section")
-plt.xlabel("Angle (radians)")
-plt.ylabel("Cumulative probability")
-plt.show()
-
-
-# Defining parameters to calculate probabilties of scattering events
-
-nain = 5.8684093929225495e29 # Number dsity of electrons (estimated using Klein Nishina and Cs-137 data)
-probabs = 1-np.exp(-nain * value180 * 0.05) # absolute probability of scattering
-probdect = linear_interpolation(energies, peakratios, source_energy)# probability of detection occurring
-probrel = probabs/(1-probdect) # relative probability of scattering if detection doesn't occur.
-
-gain1 = 2.85e-3
-
-N = 65000 # Initial intensity 
+graderrors = []
+photopeaks = [500,600,700,800,900]
+for e in photopeaks:
 
 
 
-'''
+    # Obtaining the cumulative distribution for probability of scattering using
+    # Klein Nishina
+    source_energy = e
+
+    # Obtaining the angles, corresponding cumulative distribtuion value (binned),
+    # errors and the total cross section for all scattering angles
+
+    angles2, c_prob, errors, value180 = cumulative_distribution(source_energy)
+
+    # Plotting resulting binned distribution
+    plt.figure()
+    plt.scatter(angles2, c_prob, color="k", marker='.')
+    plt.title("CDF for Kein-Nishina cross section")
+    plt.xlabel("Angle (radians)")
+    plt.ylabel("Cumulative probability")
+    plt.show()
+
+    # Defining parameters to calculate probabilties of scattering events
+
+    nain = 5.8684093929225495e29  # Number dsity of electrons (estimated using Klein Nishina and Cs-137 data)
+    probabs = 1 - np.exp(-nain * value180 * 0.05)  # absolute probability of scattering
+    probdect = linear_interpolation(energies, peakratios, source_energy)  # probability of detection occurring
+    probrel = probabs / (1 - probdect)  # relative probability of scattering if detection doesn't occur.
+
+    gain1 = 2.85e-3
+
+    simgrad = 512/5*gain1 # simgrad = 2**9 / maxsignal * gain from channel = np.floor(2**9 * analogsig/maxsig)
+
+    N = 65000  # Initial intensity
+
+    # Iterating the simulation to find the error in the peak values
+    iterations = 20
+
+    backscat_peak = []
+    comptonedge_peak = []
+    main_peak = []
+
+    comp_edge = []
+
+    gradients = []
+
+    for i in range(iterations):
+        print(i)
+        sim_data = spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob], probdect=probdect, relprob=probrel)
 
 
-# Simulating spectrum with backscattering and compton edge
-botheffects0 = spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel, det_res = 0.085 )
 
-plt.figure()
-plt.scatter(botheffects0.keys(), botheffects0.values(), label = "Energy peak= "+str(source_energy)+' keV')
-plt.title("Simulated emission spectrum")
-plt.xlabel("Channel")
-plt.ylabel("Counts")
-plt.legend()
-plt.grid()
-plt.show()
+        peak_points = localmaxima(sim_data.keys(), sim_data.values())[1]
 
-edge_coords = comptonedge(botheffects0.keys(), botheffects0.values())
-print(edge_coords)
-'''
+        energy_vals = [photon_E(source_energy, np.pi), source_energy - photon_E(source_energy, np.pi), source_energy]
+        comp_edge.append(comptonedge(sim_data.keys(), sim_data.values()))
 
-# Iterating the simulation to find the error in the peak values
-iterations = 100
+        print(len(peak_points))
 
-backscat_peak=[]
-comptonedge_peak=[]
-main_peak=[]
+        if len(peak_points) == 4:
+            backscat_peak.append(peak_points[1])
+            comptonedge_peak.append(peak_points[2])
+            main_peak.append(peak_points[3])
 
-comp_edge = []
+            fit_channels = [backscat_peak[-1][0], comp_edge[-1][0], main_peak[-1][0]]
 
-for i in range(iterations):
-    print(i)
-    sim_data = spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob],probdect= probdect, relprob= probrel)
-    peak_points = localmaxima(sim_data.keys(), sim_data.values())[1]
-    
-    print(len(peak_points))
-    
-    if len(peak_points) ==4:
-        backscat_peak.append(peak_points[1])
-        comptonedge_peak.append(peak_points[2])
-        main_peak.append(peak_points[3])
-    
-    if len(peak_points) == 3:
-        backscat_peak.append(peak_points[0])
-        comptonedge_peak.append(peak_points[1])
-        main_peak.append(peak_points[2])
-        
-    if len(peak_points) == 2:
-        backscat_peak.append(peak_points[0])
-        main_peak.append(peak_points[1])
-        
-    if len(peak_points) == 1:
-        main_peak.append(peak_points[0])
-    
-    comp_edge.append(comptonedge(sim_data.keys(), sim_data.values()))
-        
+            popt, pcov = curve_fit(linear, energy_vals, fit_channels)
+            gradients.append(popt[0])
+
+
+        if len(peak_points) == 3:
+            backscat_peak.append(peak_points[0])
+            comptonedge_peak.append(peak_points[1])
+            main_peak.append(peak_points[2])
+
+            fit_channels = [backscat_peak[-1][0], comp_edge[-1][0], main_peak[-1][0]]
+
+            popt, pcov = curve_fit(linear, energy_vals, fit_channels)
+            gradients.append(popt[0])
+
+        if len(peak_points) == 2:
+            backscat_peak.append(peak_points[0])
+            main_peak.append(peak_points[1])
+
+            fit_channels = [backscat_peak[-1][0], comp_edge[-1][0], main_peak[-1][0]]
+
+            popt, pcov = curve_fit(linear, energy_vals, fit_channels)
+            gradients.append(popt[0])
+
+        if len(peak_points) == 1:
+            main_peak.append(peak_points[0])
+
+    gradients = [grad - simgrad for grad in gradients]
+    graderror = np.mean(np.absolute(gradients))# average absolute error
+    graderrorperc = graderror/simgrad #percentage error from simulated
+    graderrors.append(graderror)
         
 comp_edge = np.array(comp_edge)
 main_peak = np.array(main_peak)
