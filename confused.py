@@ -560,7 +560,7 @@ if len(peak_points) == 2:
     backscat_peak = (peak_points[0])
 
 energyvalues = []
-angles = np.arange(0, np.pi, 0.01)
+angles = np.arange(np., np.pi, 0.01)
 for i in angles:
     energyvalues.append(photon_E(source_energy,i))
 
@@ -603,7 +603,7 @@ plt.ylabel('Total counts')
 # %%
 # Finding error of single-source calibration using MC simulation
 graderrors = []
-photopeaks = np.arange(500, 901, 50)
+photopeaks = np.arange(500, 901, 25)
 photopeakchanns = []
 photopeakerrs = []
 for e in photopeaks:
@@ -705,9 +705,13 @@ for e in photopeaks:
     graderrorperc = graderror/simgrad #percentage error from simulated
     graderrors.append(graderrorperc)
 
-
 pmulti, covmulti = curve_fit(linear, photopeaks, photopeakchanns, sigma = photopeakerrs)
 
+plt.figure()
+plt.scatter(photopeaks ,graderrors, color = 'k', marker = 'x')
+plt.ylabel("Fractional error")
+plt.xlabel("Energy of photopeak")
+plt.savefig('Errorsplot.png', dpi = 600)
 
 comp_edge = np.array(comp_edge)
 main_peak = np.array(main_peak)
