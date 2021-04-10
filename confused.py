@@ -560,7 +560,7 @@ if len(peak_points) == 2:
     backscat_peak = (peak_points[0])
 
 energyvalues = []
-angles = np.arange(np., np.pi, 0.01)
+angles = np.arange(0, np.pi, 0.01)
 for i in angles:
     energyvalues.append(photon_E(source_energy,i))
 
