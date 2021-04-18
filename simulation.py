@@ -7,8 +7,6 @@ Created on Tue Mar 30 18:04:42 2021
 
 import functions as fn
 import numpy as np
-import random as rnd
-from scipy.stats import norm
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
