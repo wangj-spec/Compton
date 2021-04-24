@@ -58,6 +58,7 @@ plt.xlabel('angle (degrees)')
 plt.ylabel('cross sectional value')
 plt.title('cross sectional area for a small angle range as a function of scattering angle')
 plt.grid()
+
 #%%
 # Calculating the expected bin value for the Compton edge and the backscattering
 gain1 = 2.85e-3
@@ -76,7 +77,7 @@ probabs = 1 - np.exp(-nain * value180 * 0.05)  # absolute probability of scatter
 probdect = fn.linear_interpolation(energies, peakratios, source_energy)  # probability of detection occurring
 probrel = probabs / (1 - probdect)  # relative probability of scattering if detection doesn't occur.
 
-# Test case
+# Plotting the simulated spectrum for a given source energy
 test = fn.spec_sim(65000, source_energy * gain1, gain1, [angles2, c_prob], probdect=probdect, relprob=probrel,
                 det_res=0.085)
 
@@ -85,6 +86,8 @@ plt.figure()
 plt.scatter(test.keys(), test.values(), label="Energy peak= " + str(source_energy) + ' keV')
 plt.axvline(backscat_bin, color='k', label='backscatter peak')
 plt.axvline(compton_bin, color='r', label='compton peak')
+plt.xlabel('channel value')
+plt.ylabel('Counts')
 plt.legend()
 
 # Plotting the number of counts due to backscattering and compton scattering
@@ -110,6 +113,7 @@ if len(peak_points) == 2:
 
 energyvalues = []
 angles = np.arange(0, np.pi, 0.01)
+
 for i in angles:
     energyvalues.append(fn.photon_E(source_energy,i))
 
@@ -149,15 +153,15 @@ plt.scatter(sim_data.keys(), sim_data.values(), color='r', marker='.')
 plt.plot(channel, cs137calib, linestyle='--', color='k', label='Experimental data')
 plt.xlabel('Channel')
 plt.ylabel('Total counts')
+plt.title('Simulated spectrum for photopeak energy of'+str(source_energy)+' keV')
 # %%
 # Finding error of single-source calibration using MC simulation
 graderrors = []
 photopeaks = np.arange(500, 901, 25)
 photopeakchanns = []
 photopeakerrs = []
+
 for e in photopeaks:
-
-
 
     # Obtaining the cumulative distribution for probability of scattering using
     # Klein Nishina
@@ -190,28 +194,23 @@ for e in photopeaks:
     N = 65000  # Initial intensity
 
     # Iterating the simulation to find the error in the peak values
-    iterations = 20
+    iterations = 5
 
+    # Creating lists for the found energy peaks and channel values
     backscat_peak = []
     comptonedge_peak = []
     main_peak = []
 
     comp_edge = []
-
     gradients = []
 
     for i in range(iterations):
-        print(i)
         sim_data = fn.spec_sim(N, source_energy * gain1, gain1, [angles2, c_prob], probdect=probdect, relprob=probrel)
-
-
 
         peak_points = fn.localmaxima(sim_data.keys(), sim_data.values())[1]
 
         energy_vals = [fn.photon_E(source_energy, np.pi), source_energy - fn.photon_E(source_energy, np.pi), source_energy]
         comp_edge.append(fn.comptonedge(sim_data.keys(), sim_data.values()))
-
-        print(len(peak_points))
 
         if len(peak_points) == 4:
             backscat_peak.append(peak_points[1])
@@ -261,15 +260,13 @@ plt.figure()
 plt.scatter(photopeaks ,graderrors, color = 'k', marker = 'x')
 plt.ylabel("Fractional error")
 plt.xlabel("Energy of photopeak")
-plt.savefig('Errorsplot.png', dpi = 600)
 
 comp_edge = np.array(comp_edge)
 main_peak = np.array(main_peak)
 backscat_peak = np.array(backscat_peak)
 
 
-# Trying the calibration method using cs137
-
+# Trying the calibration method using experimental cs137 results
 
 peak_pointsexp = fn.localmaxima(channel, cs137calib)[1]
 
@@ -280,10 +277,15 @@ channel_valeexp = [backscat_exp[0], comp_edgeexp[0], main_exp[0]]
 
 pexp, covexp = curve_fit(fn.linear, [fn.photon_E(662, np.pi), 662 - fn.photon_E(662, np.pi), 662], channel_valeexp)
 
+print('channel/energy gradient found from the experimental data  = '\
+      ''+str(pexp[0])+' channel/keV')
+
+# Doing the same calibration but with the simulated spectrum.    
 fit_channels = [np.mean(backscat_peak[:, 0]), np.mean(comp_edge[:, 0]), np.mean(main_peak[:, 0])]
-
-
 channel_err = [np.std(backscat_peak[:, 0]), np.std(comp_edge[:, 0]), np.std(main_peak[:, 0])]
 
 popt, pcov = curve_fit(fn.linear, energy_vals, fit_channels, sigma=channel_err)
+
+print('channel/energy gradient found from the simulated data  = '\
+      ''+str(popt[0])+' channel/keV with an error of'+str(np.sqrt(pcov[0])))
 
