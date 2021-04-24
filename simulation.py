@@ -161,6 +161,7 @@ photopeaks = np.arange(500, 901, 25)
 photopeakchanns = []
 photopeakerrs = []
 
+# Note that simulating these will take a LONG time (hour)
 for e in photopeaks:
 
     # Obtaining the cumulative distribution for probability of scattering using
