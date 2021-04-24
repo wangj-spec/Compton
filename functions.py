@@ -1,3 +1,5 @@
+
+
 import numpy as np
 import random as rnd
 from scipy.stats import norm
@@ -411,6 +413,20 @@ def localmaxima(arrayx, arrayy):
 
 
 def comptonedge(arrayx, arrayy, binsize=6):
+    '''
+    Params:
+        arrayx: arraylike
+        arrayy: arraylike
+            Channel and counts from a given spectrum.
+        binsize: int
+            Determines the bin sizes of the data that will be used for the analysis.
+    Returns:
+        channel: int
+            Channel number of the Compton Edge
+        value: float
+            Associated counts for this channel value.
+            
+    '''
     arrayx = list(arrayx)
     arrayy = list(arrayy)
     binnedvalues = []
@@ -453,8 +469,10 @@ def comptonedge(arrayx, arrayy, binsize=6):
     return channel, value
 
 def linear(x, a, b):
+    '''
+    Linear fit function.
+    '''
     y = a * x + b
     return y
 
 
-# %%
